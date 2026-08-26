@@ -23,7 +23,7 @@ price, the recent history of American housing looks very different:
 
 Over the same two years, the median household headed by a 25–34 year old got a
 **14.6% raise** — and became dramatically *less* able to buy, because the income
-a bank required jumped **54%**, from about $79,000 to $122,000.
+a bank required jumped **54%**, from about \$79,000 to \$122,000.
 
 This project reconstructs that story from primary federal sources, engineers the
 affordability metrics a buyer actually faces, and packages it for a general
