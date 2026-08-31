@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Economic & Housing Data Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Economic & Housing Data</h1>
+    <div class="controls">
+      <button id="refresh">Refresh data</button>
+    </div>
+  </header>
+
+  <div id="server-warning" style="display:none;background:#fff3cd;border-left:4px solid #ffb020;padding:0.75rem 1rem;margin:64px 1rem 0.5rem;">
+    <strong>Note:</strong> If you opened this file directly (file://) graphs may not load. Run a simple local server and open the page via http:// to allow the page to fetch its JSON data.
+    <div style="margin-top:0.5rem;font-size:0.95rem">Quick start: <code>python3 -m http.server 8000</code> in the repo root, then open <code>http://localhost:8000/web/</code>.</div>
+  </div>
+
+  <main id="fullpage">
+    <section class="fp-section">
+      <div class="content-wrap">
+        <div class="hero">
+          <div class="intro-cards">
+            <div class="card intro-card">
+              <h2>How macro economic data impacts the age at which people can buy homes?</h2>
+              <p>This dashboard highlights the key national indicators that shape affordability: interest rates, wage growth, inflation, employment, and broad credit conditions. Use these measures to contextualize local market research and financing decisions.</p>
+            </div>
+
+            <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:nowrap;width:100%;">
+              <div class="card intro-card house-card" aria-hidden="true" style="flex:0 0 20%;max-width:20%;min-width:120px;">
+                <div class="house">
+                  <svg viewBox="0 0 120 120" class="house" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#0b3559"/>
+                      <stop offset="100%" stop-color="#1e90ff"/>
+                    </linearGradient>
+                    <linearGradient id="g2" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#ffd166"/>
+                      <stop offset="100%" stop-color="#ff7b7b"/>
+                    </linearGradient>
+                  </defs>
+                  <rect x="20" y="44" width="80" height="50" rx="6" fill="url(#g1)"/>
+                  <polygon points="60,14 18,46 102,46" fill="url(#g2)"/>
+                  <rect x="54" y="60" width="12" height="18" rx="2" fill="#ffffff"/>
+                  <rect x="34" y="66" width="14" height="12" rx="2" fill="#ffffff" opacity="0.6"/>
+                </svg>
+              </div>
+              </div>
+
+              <div class="card intro-card" data-series="FIG5_AGE" style="flex:1 1 80%;min-width:360px;">
+                <h3>Ages at Home Purchase</h3>
+                <button class="info-btn">Details</button>
+                <p class="impact">Median age at home purchase over time. Use the controls to filter and adjust rows.</p>
+                <div class="plot" style="margin-top:0.75rem;min-height:480px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="disclaimer" style="margin-top:1rem;padding:0.75rem;border-left:4px solid #0066cc;background:#fbfdff">
+            <h3>Disclaimer</h3>
+            <p>National indicators are a compass — not a substitute for local research.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+
+    <!-- FIRST SECTION: DEBT & DOWNPAYMENT SAVINGS (Figure 6) -->
+    <section id="debt" class="fp-section">
+      <div class="content-wrap">
+        <div class="category">
+          <h2>Debt & Downpayment Savings</h2>
+          <div class="datasets">
+            <div class="card" data-series="FIG6_DEBT_DOWNPAY">
+              <h3>Debt & Downpayment Savings</h3>
+              <button class="info-btn">Details</button>
+              <p class="impact">Overview of key debt series and estimated downpayment savings.</p>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'debt-first', 'income-tab')">Household Income</button>
+            <button class="tab-btn" onclick="switchTab(event, 'debt-first', 'loans-tab')">Student & Credit Debt</button>
+          </div>
+
+          <div id="income-tab" class="tab-content active">
+            <div class="datasets" id="debt-datasets-income">
+              <div class="card" data-series="MEHOINUSA672N">
+                <h3>Real Median Income</h3>
+                <button class="info-btn">Details</button>
+                <p class="impact">Inflation-adjusted household income.</p>
+              </div>
+              <div class="card" data-series="downpayment_savings">
+                <h3>Downpayment Savings</h3>
+                <button class="info-btn">Details</button>
+                <p class="impact">Estimated household savings available for downpayments.</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="loans-tab" class="tab-content" style="display:none;">
+            <div class="datasets" id="debt-datasets-loans">
+              <div class="card" data-series="SLOAS">
+                <h3>Student Loans</h3>
+                <button class="info-btn">Details</button>
+                <p class="impact">Outstanding student loan balances.</p>
+              </div>
+              <div class="card" data-series="CCLACBW027SBOG">
+                <h3>Credit Card Debt</h3>
+                <button class="info-btn">Details</button>
+                <p class="impact">Revolving credit balances across banks.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MACRO ECONOMIC TRENDS -->
+    <section id="macro" class="fp-section">
+      <div class="content-wrap">
+        <div class="category">
+          <h2>Macro Economic Trends</h2>
+    <!-- MACRO ECONOMIC TRENDS -->
+    <section id="macro" class="category">
+      <h2>Macro Economic Trends</h2>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(event, 'macro', 'rates-tab')">Interest Rates & Yields</button>
+        <button class="tab-btn" onclick="switchTab(event, 'macro', 'growth-tab')">GDP & Inflation</button>
+        <button class="tab-btn" onclick="switchTab(event, 'macro', 'labor-tab')">Labor & Demographics</button>
+      </div>
+
+      <div id="rates-tab" class="tab-content active">
+        <div class="datasets" id="macro-datasets-rates">
+          <div class="card" data-series="PRIME">
+            <h3>Bank Prime Loan Rate</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Short-term borrowing costs; affects HELOCs and ARMs.</p>
+          </div>
+          <div class="card" data-series="DGS10">
+            <h3>10-Year Treasury</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Benchmark for long-term borrowing; pushes mortgage rates.</p>
+          </div>
+          <div class="card" data-series="DGS30">
+            <h3>30-Year Treasury</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Long-duration baseline that influences real-estate debt pricing.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="growth-tab" class="tab-content" style="display:none;">
+        <div class="datasets" id="macro-datasets-growth">
+          <div class="card" data-series="GDP">
+            <h3>GDP</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Overall economic activity; growth supports demand and wages.</p>
+          </div>
+          <div class="card" data-series="CPIAUCSL">
+            <h3>Inflation (CPI)</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Erodes purchasing power; affects policy & borrowing costs.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="labor-tab" class="tab-content" style="display:none;">
+        <div class="datasets" id="macro-datasets-labor">
+          <div class="card" data-series="UNRATE">
+            <h3>Unemployment</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Job market strength supports payments and demand.</p>
+          </div>
+          <div class="card" data-series="POPTHM">
+            <h3>Population</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Demographics shape long-term housing demand.</p>
+          </div>
+        </div>
+      </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOUSING MARKET DATA -->
+    <section id="housing" class="fp-section">
+      <div class="content-wrap">
+        <div class="category">
+      <h2>Housing Market Data</h2>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(event, 'housing', 'costs-tab')">Rates & Prices</button>
+        <button class="tab-btn" onclick="switchTab(event, 'housing', 'valuation-tab')">Valuation & Indices</button>
+        <button class="tab-btn" onclick="switchTab(event, 'housing', 'structure-tab')">Ownership & Policy</button>
+      </div>
+
+      <div id="costs-tab" class="tab-content active">
+        <div class="datasets" id="housing-datasets-costs">
+          <div class="card" data-series="MORTGAGE30US">
+            <h3>30-Year Mortgage</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Primary affordability driver—affects monthly payments.</p>
+          </div>
+          <div class="card" data-series="MSPUS">
+            <h3>Median Sales Price</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Tracks central tendency of sold home prices.</p>
+          </div>
+          <div class="card" data-series="ASPUS">
+            <h3>Average Sales Price</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Mean sale price; sensitive to luxury sales.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="valuation-tab" class="tab-content" style="display:none;">
+        <div class="datasets" id="housing-datasets-valuation">
+          <div class="card" data-series="CSUSHPINSA">
+            <h3>Case-Shiller Index</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Repeat-sales price index for long-run trends.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="structure-tab" class="tab-content" style="display:none;">
+        <div class="datasets" id="housing-datasets-structure">
+          <div class="card" data-series="RHORUSQ156N">
+            <h3>Homeownership Rate</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Share of households who own vs rent.</p>
+          </div>
+          <div class="card" data-series="G160651A027NBEA">
+            <h3>HUD Outlays</h3>
+            <button class="info-btn">Details</button>
+            <p class="impact">Federal spending on housing programs.</p>
+          </div>
+        </div>
+      </div>
+        </div>
+      </div>
+    </section>
+
+
+
+    <section class="fp-section">
+      <div class="content-wrap">
+        <div class="category research">
+      <h2>Selected Research & Further Reading</h2>
+      <p style="margin-top:0.5rem;">Curated resources to explore housing affordability, rates, and household finance. Click a card for a short summary and source link.</p>
+
+      <div class="research-grid" style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
+        <div class="research-card" style="flex:1 1 300px;padding:0.75rem;border-radius:8px;background:#f7fbff;">
+          <h4>Mortgage rates &amp; housing affordability (search)</h4>
+          <p style="font-size:0.9rem">Search results aggregating papers on how mortgage costs affect affordability.</p>
+          <a href="https://scholar.google.com/scholar?q=mortgage+rates+housing+affordability" target="_blank">Open search</a>
+        </div>
+
+        <div class="research-card" style="flex:1 1 300px;padding:0.75rem;border-radius:8px;background:#fff7f0;">
+          <h4>Interest rates &amp; housing prices (search)</h4>
+          <p style="font-size:0.9rem">Papers that investigate the transmission from interest rates to house prices.</p>
+          <a href="https://scholar.google.com/scholar?q=interest+rates+housing+prices" target="_blank">Open search</a>
+        </div>
+
+        <div class="research-card" style="flex:1 1 300px;padding:0.75rem;border-radius:8px;background:#f0fff6;">
+          <h4>Student debt &amp; homeownership (search)</h4>
+          <p style="font-size:0.9rem">Literature on how student and consumer debt affect housing decisions.</p>
+          <a href="https://scholar.google.com/scholar?q=student+debt+homeownership" target="_blank">Open search</a>
+        </div>
+
+        <div class="research-card" style="flex:1 1 300px;padding:0.75rem;border-radius:8px;background:#fff9f7;">
+          <h4>Mian &amp; Sufi (2018)</h4>
+          <p style="font-size:0.9rem">Housing, credit availability, and the business cycle (NBER).</p>
+          <a href="https://www.nber.org/papers/w24560" target="_blank">Read paper</a>
+        </div>
+
+        <div class="research-card" style="flex:1 1 300px;padding:0.75rem;border-radius:8px;background:#fffaf5;">
+          <h4>Glaeser &amp; Gyourko (2015)</h4>
+          <p style="font-size:0.9rem">The impact of housing supply on housing markets.</p>
+          <a href="https://www.sciencedirect.com/science/article/pii/S0165176513001630" target="_blank">Read paper</a>
+        </div>
+
+        <div class="research-card" style="flex:1 1 300px;padding:0.75rem;border-radius:8px;background:#f6f5ff;">
+          <h4>Mullainathan et al. (2020)</h4>
+          <p style="font-size:0.9rem">Income dynamics and housing affordability.</p>
+          <a href="https://www.journals.uchicago.edu/doi/10.1086/706948" target="_blank">Read paper</a>
+        </div>
+      </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="fp-section">
+      <div class="content-wrap">
+        <div class="category ethics-cards">
+          <h2>Ethical Considerations & Data Limitations</h2>
+          <div class="ethics-grid" style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.75rem;">
+            <div class="ethic-card" style="flex:1;min-width:160px;background:#f8f0f4;padding:0.75rem;border-radius:8px;">
+              <div style="height:80px;background:#ffdce0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600">Provenance</div>
+              <h4>Data provenance</h4>
+              <p class="short">Public series may start at different dates and vary in coverage.</p>
+              <button class="ethics-btn">More</button>
+              <div class="ethics-more" style="display:none;margin-top:0.5rem;font-size:0.9rem;">Check series metadata (source, start/end dates) before long-run comparisons. FRED series have individual metadata pages.</div>
+            </div>
+
+            <div class="ethic-card" style="flex:1;min-width:160px;background:#f0f6ff;padding:0.75rem;border-radius:8px;">
+              <div style="height:80px;background:#cfe8ff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600">Privacy</div>
+              <h4>Privacy limits</h4>
+              <p class="short">Series are aggregates, not individual records.</p>
+              <button class="ethics-btn">More</button>
+              <div class="ethics-more" style="display:none;margin-top:0.5rem;font-size:0.9rem;">Aggregates cannot reveal individual accounts; do not infer personal finances from national series.</div>
+            </div>
+
+            <div class="ethic-card" style="flex:1;min-width:160px;background:#fff7e6;padding:0.75rem;border-radius:8px;">
+              <div style="height:80px;background:#ffe6a7;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600">Bias</div>
+              <h4>Bias & limitations</h4>
+              <p class="short">Data collection methods may bias results.</p>
+              <button class="ethics-btn">More</button>
+              <div class="ethics-more" style="display:none;margin-top:0.5rem;font-size:0.9rem;">Survey design, sample frames, and reporting lag can bias series; document these when analyzing sensitive topics.</div>
+            </div>
+
+            <div class="ethic-card" style="flex:1 1 100%;min-width:240px;background:#fff7e6;padding:0.75rem;border-radius:8px;">
+              <div style="height:64px;background:#ffdca8;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600">Responsible Use</div>
+              <h4>Responsible use disclaimer</h4>
+              <p class="short">This dashboard provides aggregate indicators for context — not personal financial advice. Check series metadata, cite sources, and supplement with local research before making decisions.</p>
+              <button class="ethics-btn">More</button>
+              <div class="ethics-more" style="display:none;margin-top:0.5rem;font-size:0.9rem;">Avoid over-interpreting short-term noise. If using modelled or imputed series, label them clearly and validate against primary sources before relying on them for policy or financial decisions.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function switchTab(evt, sectionId, tabId) {
+      const section = document.getElementById(sectionId);
+      const tabs = section.getElementsByClassName('tab-content');
+      for (let t of tabs) {
+        t.style.display = 'none';
+      }
+      const buttons = section.getElementsByClassName('tab-btn');
+      for (let b of buttons) {
+        b.classList.remove('active');
+      }
+      document.getElementById(tabId).style.display = 'block';
+      evt.currentTarget.classList.add('active');
+    }
+  </script>
+  <script src="main.js"></script>
+</body>
+</html>
