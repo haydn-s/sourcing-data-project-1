@@ -305,6 +305,7 @@ checks that the committed CSVs and JSON still regenerate byte-for-byte.
 ├── figures/            # generated PNGs
 ├── web/                # story page: index.html + main.js + exported JSON
 ├── tests/              # pytest suite (see above)
+├── LICENSE             # MIT for code, CC BY-4.0 for the written analysis
 ├── .github/workflows/  # CI: tests + a staleness check on committed outputs
 ├── pyproject.toml      # pytest config only; the project is scripts, not a package
 ├── requirements.txt
@@ -402,3 +403,19 @@ financial advice.
   [`web/README.md`](web/README.md)
 - **GitHub repository:** this repo
 - **Presentation:** September 29th, in class
+
+---
+
+## License
+
+Three parts, because the repository holds three different kinds of thing — see
+[`LICENSE`](LICENSE) for the full terms.
+
+| What | Where | Licence |
+|---|---|---|
+| Code | `src/`, `tests/`, `web/*.{html,js,css}`, root config | [MIT](LICENSE) |
+| Written analysis and figures | this README, `web/index.html`, `figures/` | [CC BY-4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Source data | `data/raw/` | Public domain — U.S. government works, [17 U.S.C. § 105](https://www.law.cornell.edu/uscode/text/17/105) |
+
+If you use the underlying series, please cite FRED and the Census Bureau
+directly rather than this repository. The full citations are above.

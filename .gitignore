@@ -10,5 +10,8 @@ venv/
 # here means it stays ignored if that behaviour ever changes.
 .pytest_cache/
 
+# Local tooling
+.claude/
+
 # OS
 .DS_Store
