@@ -93,7 +93,15 @@ DECOMP_BASE_YEAR = SHOCK_START_YEAR
 
 # Base years for the decomposition robustness check. Anchoring on 2021 -- the
 # all-time low in mortgage rates -- is the choice most favourable to a "rates
-# did it" reading, so we re-run the split from several earlier anchors to show
-# how much of that headline is baseline choice rather than data. Measured from
-# a pre-pandemic normal, prices account for more of the increase than rates do.
-DECOMP_SENSITIVITY_BASE_YEARS = (2015, 2019, 2020, 2021)
+# did it" reading, so we re-run the split from every anchor across a 20-year
+# window and report how the answer moves. The sweep stops at SHOCK_START_YEAR:
+# later anchors sit on the far side of the tightening, where the payment change
+# approaches (and then crosses) zero and percentage shares stop meaning anything.
+DECOMP_SENSITIVITY_BASE_YEARS = tuple(range(2005, SHOCK_START_YEAR + 1))
+
+# Constant-dollar base for every real (inflation-adjusted) series.
+# Nominal and real decompositions diverge sharply over long horizons: across 20
+# years most nominal "price growth" is simply CPI, so a nominal split credits
+# prices for inflation. Shares are invariant to this choice -- piti() is linear
+# in price -- so it sets the units, not the conclusions.
+REAL_DOLLAR_BASE_YEAR = 2024

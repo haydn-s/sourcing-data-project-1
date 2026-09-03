@@ -25,15 +25,25 @@ Over the same two years, the median household headed by a 25–34 year old got a
 **14.6% raise** — and became dramatically *less* able to buy, because the income
 a bank required jumped **54%**, from about \$79,000 to \$122,000.
 
-That 71% is real, but it is a statement about **2021–2023**, and 2021 was the
-all-time low in mortgage rates. Measured from a pre-pandemic baseline instead,
-prices account for more of the increase than rates do. Both things are true, and
-together they are the actual story:
+That 71% is a statement about **2021–2023**, and 2021 was the all-time low in
+mortgage rates — the anchor most favourable to a rates-driven reading. So we
+tested it, re-running the identical decomposition from *every* anchor across a
+20-year window, in both nominal and constant dollars.
 
-> **Rates caused the shock. Prices caused the squeeze.**
+The test does not weaken the claim. It sharpens it:
 
-We report the full base-year sweep rather than picking the anchor that tells the
-better story — see [key finding 3](#key-findings) and
+> **Rates are the larger factor from any anchor since 2012 — but only once you
+> stop counting inflation as house-price growth.**
+
+In constant dollars, rising rates outweigh rising prices from every anchor back
+to 2012. That is a far stronger result than the 2021 anchor alone could support.
+Real prices dominate only from a mid-2000s baseline — and that baseline is the
+housing bubble.
+
+Run the *nominal* sweep and you get the opposite answer for every anchor before
+2020, because CPI rose **60%** across the window and a nominal split hands prices
+the credit for it. The two crossovers sit eight years apart. We publish both, and
+the gap between them — see [key finding 3](#key-findings) and
 [`figures/07_decomposition_sensitivity.png`](figures/07_decomposition_sensitivity.png).
 
 This project reconstructs that story from primary federal sources, engineers the
@@ -54,20 +64,28 @@ little or spend carelessly. The data does not support that explanation.
 2. **Rates did the damage — over that window.** A counterfactual decomposition
    splits the $1,002/month increase into $209 from prices (21%), $712 from rates
    (71%), and $81 from their interaction (8%).
-3. **But that split depends on where you start, and we say so.** Re-running the
-   decomposition from earlier anchors, measured through 2025:
+3. **The split depends on the anchor and on inflation — and we publish both.**
+   The same decomposition, re-run from all 17 anchors from 2005 to 2021,
+   measured through 2025. Effects are the added monthly payment each factor
+   accounts for:
 
-   | Anchor | Rate then | Total rise | Prices | Rates | Blames |
-   |---|---|---|---|---|---|
-   | 2021 | 3.0% | +$884/mo | 18% | **76%** | rates |
-   | 2020 | 3.1% | +$1,126/mo | 38% | **49%** | rates |
-   | 2019 | 3.9% | +$1,047/mo | **48%** | 40% | prices |
-   | 2015 | 3.8% | +$1,195/mo | **53%** | 33% | prices |
+   | Anchor | Nominal: prices / rates | Constant-2024$: prices / rates | Real verdict |
+   |---|---|---|---|
+   | 2006 | $1,110 / $24 | $164 / $37 | prices |
+   | 2009 | $1,153 / $171 | $516 / $250 | prices |
+   | 2011 | $1,046 / $242 | $500 / $337 | prices |
+   | **2012** | $876 / $353 | **$363 / $482** | **rates** ← real crossover |
+   | 2015 | $632 / $399 | $80 / $528 | rates |
+   | 2019 | $499 / $422 | $62 / $518 | rates |
+   | **2020** | **$426 / $553** | $34 / $670 | rates ← nominal crossover |
+   | 2021 | $156 / $672 | −$186 / $777 | rates |
 
-   The dominant factor flips. Anchoring on 2021 — the rate trough — is the
-   choice most favourable to a rates-driven reading. Rates are the right
-   explanation for the *sudden* shock; prices are the right explanation for the
-   *decade-long* squeeze.
+   In constant dollars rates lead from **2012** on; nominally they only lead
+   from **2020**. The eight-year gap is inflation: CPI rose 60% over the window,
+   so a nominal split credits prices for it. Real prices actually *fell* between
+   2021 and 2025, which is why that last row's price effect is negative.
+   Constant dollars is the affordability-relevant lens, and it makes the
+   rates story hold across two decades rather than two years.
 4. **Young households out-earn the typical household.** Median income for
    householders aged 25–34 was $90,100 in 2024 versus $83,730 for all households
    — **1.08×** the all-ages median. The all-ages figure is dragged down by
@@ -158,6 +176,7 @@ the other. Every assumption is a named constant in
 | `affordability_index` | Median income (age 25–34) ÷ `required_income` × 100 | 100 = the median young household exactly qualifies |
 | `years_to_save_down` | 20% of price ÷ (income × 10% savings rate) | The barrier a payment-based measure misses entirely |
 | `price_effect` / `rate_effect` / `interaction` | Two-factor counterfactual decomposition of the payment change vs 2021 | Separates how much of the pain is prices vs rates |
+| `real_price_effect` / `real_rate_effect` | The same split with the base-year price deflated to 2024 dollars | Over long horizons the nominal split credits prices for inflation |
 | `hor_gap_under35` | All-ages homeownership rate − under-35 rate | The outcome variable |
 | `student_debt_per_capita` | `SLOAS` ÷ population | Competing claim on the same income |
 | `credit_card_debt_per_capita` | `CCLACBW027SBOG` ÷ population | The other competing claim; the back-end DTI test counts revolving balances too |
@@ -169,13 +188,28 @@ Because the payment is multiplicative in price and non-linear in rate, the two
 effects do not sum to the total; the residual **interaction** term is reported
 explicitly rather than being quietly assigned to one factor.
 
-**On the base year.** The decomposition answers "compared to *when*?", and the
-answer moves the result more than any modeling assumption in this repo. 2021 was
+**On the base year.** The decomposition answers "compared to *when*?", and that
+choice moves the result more than any modeling assumption in this repo. 2021 was
 the all-time low in mortgage rates, so anchoring there maximises the share
-attributed to rates. `decompose_sensitivity()` re-runs the split from 2015, 2019,
-2020 and 2021 and writes `data/processed/decomposition_sensitivity.csv`; the
-dominant factor flips between the pre-pandemic anchors and the 2021 one. We
-publish the sweep instead of the single most quotable number.
+attributed to rates. `decompose_sensitivity()` re-runs the split from all 17
+anchors between 2005 and 2021 and writes
+`data/processed/decomposition_sensitivity.csv`.
+
+**On nominal versus real.** Over two years the two agree; over twenty they do
+not. CPI rose ~60% from 2006 to 2025 against ~70% nominal growth in the median
+price, so a *nominal* split hands prices the credit for inflation. The test: if
+prices, incomes and rents all doubled with inflation while rates held flat, a
+nominal decomposition would report "prices did 100% of it" — while affordability
+was untouched. The `real_*` columns deflate the base-year price to
+`REAL_DOLLAR_BASE_YEAR` dollars so the price effect is real appreciation only.
+Both are written; the real one is the affordability-relevant reading, and the
+divergence between them is itself reported rather than quietly resolved.
+
+**On unreadable shares.** Percentage shares only mean something while both
+effects push the same way. Real prices fell after 2021, so from those anchors the
+price effect is negative and the shares run past 100% and below zero. Those rows
+carry `real_shares_readable = False`, and the figure plots dollars rather than
+shares so the sign is visible instead of hidden.
 
 ---
 

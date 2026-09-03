@@ -27,6 +27,7 @@ from config import (
     FRONT_END_DTI,
     LOAN_TERM_YEARS,
     PROCESSED,
+    REAL_DOLLAR_BASE_YEAR,
     SAVINGS_RATE,
     TAX_INSURANCE_PCT,
     YOUNG_COHORT,
@@ -101,7 +102,7 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     # --- inflation-adjusted views (2024 dollars) --------------------------
     # NOTE: deflated with CPI-U, whereas Census deflates its own real income
     # series with CPI-U-RS. The two differ slightly; see README limitations.
-    cpi_base = df.loc[2024, "cpi"]
+    cpi_base = df.loc[REAL_DOLLAR_BASE_YEAR, "cpi"]
     for col in ["median_price", "monthly_piti", "required_income", "income_young",
                 "down_payment"]:
         df[f"{col}_real2024"] = df[col] * cpi_base / df["cpi"]
@@ -177,16 +178,41 @@ def latest_complete_year(df: pd.DataFrame) -> int:
     return int(usable.index.max())
 
 
+def _split(price_b, rate_b, price_e, rate_e):
+    """Two-factor counterfactual split of one payment change.
+
+    Returns (base_payment, total, price_effect, rate_effect, interaction).
+    Holding one input at its base level isolates the other's contribution;
+    because piti is linear in price but non-linear in rate, the two do not sum
+    to the total and the residual is returned rather than absorbed.
+    """
+    base = float(piti(price_b, rate_b))
+    total = float(piti(price_e, rate_e)) - base
+    price_effect = float(piti(price_e, rate_b)) - base
+    rate_effect = float(piti(price_b, rate_e)) - base
+    return base, total, price_effect, rate_effect, total - price_effect - rate_effect
+
+
 def decompose_sensitivity(df: pd.DataFrame,
                           base_years=DECOMP_SENSITIVITY_BASE_YEARS,
                           end_year: int | None = None) -> pd.DataFrame:
-    """Re-run the price-vs-rate split from several different base years.
+    """Re-run the price-vs-rate split from every anchor across a 20-year window.
 
-    The headline decomposition anchors on 2021, the all-time low in mortgage
-    rates. That is the anchor most favourable to a "rates did it" reading, and
-    the result is sensitive to it: measured from a pre-pandemic normal, prices
-    account for more of the payment increase than rates do. Reporting the sweep
-    keeps the framing honest about which dial was turned.
+    Two things move the answer, and this reports both.
+
+    **The anchor.** The headline decomposition starts at 2021, the all-time low
+    in mortgage rates -- the anchor most favourable to a "rates did it" reading.
+
+    **The denomination.** Over two years nominal and real agree. Over twenty
+    they do not: CPI rose ~60% from 2006 to 2025 against ~70% nominal growth in
+    the median price, so a nominal split hands prices the credit for inflation.
+    If prices, incomes and rents all doubled with inflation and rates held flat,
+    the nominal split would report "prices did 100% of it" while affordability
+    was untouched. The real columns deflate the base-year price to
+    REAL_DOLLAR_BASE_YEAR dollars so the price effect is real appreciation only.
+
+    Real terms is the correct lens for a long horizon; the nominal columns are
+    kept so the divergence itself can be shown rather than quietly resolved.
 
     `end_year` defaults to the latest year with a full 12 months of data, so a
     partial final year never sets the headline.
@@ -196,40 +222,45 @@ def decompose_sensitivity(df: pd.DataFrame,
     if end_year not in df.index:
         raise ValueError(f"end year {end_year} not in panel")
 
-    p_e = df.loc[end_year, "median_price"]
-    r_e = df.loc[end_year, "mortgage_rate"]
+    p_e, r_e = df.loc[end_year, "median_price"], df.loc[end_year, "mortgage_rate"]
+    cpi_base = df.loc[REAL_DOLLAR_BASE_YEAR, "cpi"]
+    p_e_real = p_e * cpi_base / df.loc[end_year, "cpi"]
 
     rows = []
     for base_year in base_years:
         if base_year not in df.index:
             raise ValueError(f"base year {base_year} not in panel")
-        p_b = df.loc[base_year, "median_price"]
-        r_b = df.loc[base_year, "mortgage_rate"]
+        p_b, r_b = df.loc[base_year, "median_price"], df.loc[base_year, "mortgage_rate"]
+        p_b_real = p_b * cpi_base / df.loc[base_year, "cpi"]
 
-        base_payment = float(piti(p_b, r_b))
-        total = float(piti(p_e, r_e)) - base_payment
-        price_effect = float(piti(p_e, r_b)) - base_payment
-        rate_effect = float(piti(p_b, r_e)) - base_payment
+        base, total, price_eff, rate_eff, inter = _split(p_b, r_b, p_e, r_e)
+        rbase, rtotal, rprice, rrate, rinter = _split(p_b_real, r_b, p_e_real, r_e)
 
         rows.append({
-            "base_year": base_year,
-            "end_year": end_year,
-            "base_payment": base_payment,
-            "end_payment": base_payment + total,
-            "base_price": p_b,
-            "base_rate": r_b,
-            "total_change": total,
-            "price_effect": price_effect,
-            "rate_effect": rate_effect,
-            "interaction": total - price_effect - rate_effect,
+            "base_year": base_year, "end_year": end_year,
+            "base_price": p_b, "base_rate": r_b,
+            "base_payment": base, "total_change": total,
+            "price_effect": price_eff, "rate_effect": rate_eff,
+            "interaction": inter,
+            "base_price_real": p_b_real, "base_payment_real": rbase,
+            "real_total_change": rtotal, "real_price_effect": rprice,
+            "real_rate_effect": rrate, "real_interaction": rinter,
         })
 
     out = pd.DataFrame(rows).set_index("base_year")
-    for col in ["price_effect", "rate_effect", "interaction"]:
-        out[f"{col}_share"] = out[col] / out["total_change"] * 100
-    # Which factor the reader would walk away blaming, given this anchor.
-    out["dominant_factor"] = np.where(
-        out["price_effect"] > out["rate_effect"], "price", "rate")
+
+    for prefix in ("", "real_"):
+        total = out[f"{prefix}total_change"]
+        for part in ("price_effect", "rate_effect", "interaction"):
+            out[f"{prefix}{part}_share"] = out[f"{prefix}{part}"] / total * 100
+        price, rate = out[f"{prefix}price_effect"], out[f"{prefix}rate_effect"]
+        out[f"{prefix}dominant_factor"] = np.where(price > rate, "price", "rate")
+        # A share is only readable while both effects push the same way. Once
+        # one turns negative the pair still sums to the total but the
+        # percentages run past 100 and below zero, so flag rather than print.
+        out[f"{prefix}shares_readable"] = (
+            (np.sign(price) == np.sign(rate)) & (total != 0))
+
     return out
 
 
@@ -251,10 +282,13 @@ def main() -> int:
     sens = decompose_sensitivity(df)
     sens.to_csv(PROCESSED / "decomposition_sensitivity.csv")
     end_year = int(sens["end_year"].iloc[0])
-    flips = sens["dominant_factor"].nunique() > 1
     print(f"decomposition_sensitivity.csv {sens.shape[0]:>2} base years "
-          f"-> {end_year}"
-          f"{'  (dominant factor FLIPS across base years)' if flips else ''}")
+          f"({sens.index.min()}-{sens.index.max()}) -> {end_year}")
+    for label, col in (("nominal", "dominant_factor"), ("real", "real_dominant_factor")):
+        blames = sens[col]
+        flip = blames.ne(blames.shift()).cumsum().max() > 1
+        print(f"  {label:<8} blames prices in {(blames == 'price').sum():>2}/{len(blames)} "
+              f"anchors{'  (dominant factor FLIPS)' if flip else ''}")
     return 0
 
 

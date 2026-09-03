@@ -20,6 +20,7 @@ from config import (
     HIGH_RATE_ERA_YEAR,
     HOR_BASE_YEAR,
     PROCESSED,
+    REAL_DOLLAR_BASE_YEAR,
     SAVINGS_RATE,
     SHOCK_END_YEAR,
     SHOCK_START_YEAR,
@@ -306,64 +307,76 @@ def fig_down_payment(df):
 
 
 def fig_decomposition_sensitivity(sens):
-    """The robustness check: how much of "rates did it" is the base year?
+    """Where the price/rate crossover sits, and how far inflation moves it.
 
-    A 100% stacked bar per anchor. The order is rhetorical, not chronological:
-    the headline 2021 anchor sits at the top, and walking down to earlier
-    anchors shows the rate share erode until the dominant factor flips.
-    Segments carry direct labels so identity never rests on colour alone, and
-    the neutral grey marks the interaction as an arithmetic residual rather
-    than a third driver.
+    Two panels sharing an anchor-year axis, each plotting the two effects in
+    dollars per month rather than as shares. Dollars because once real prices
+    start falling the two effects take opposite signs, and percentage shares of
+    a total then run past 100 and below zero -- readable arithmetic, unreadable
+    chart. The crossover -- where the rate line passes the price line -- is the
+    finding, and it sits eight years earlier once inflation is taken out.
     """
-    d = sens.sort_index(ascending=False)      # headline 2021 anchor at the top
+    d = sens.sort_index()
     end_year = int(d["end_year"].iloc[0])
-    ypos = range(len(d))
 
-    fig, ax = plt.subplots(figsize=(8.4, 4.4))
-    left = [0.0] * len(d)
-    segments = (("price_effect_share", COOL, "Higher prices"),
-                ("rate_effect_share", ACCENT, "Higher interest rates"),
-                ("interaction_share", MUTED, "Interaction"))
-    for col, color, label in segments:
-        vals = d[col].to_numpy()
-        # 2px surface gap between stacked segments, per the mark spec.
-        ax.barh(list(ypos), vals, left=left, color=color, label=label,
-                height=0.62, linewidth=1.6, edgecolor="white")
-        for y, (v, l) in enumerate(zip(vals, left)):
-            if v >= 9:            # below this a label cannot sit inside the bar
-                ax.text(l + v / 2, y, f"{v:.0f}%", ha="center", va="center",
-                        color="white", fontsize=9, fontweight="bold")
-        left = [l + v for l, v in zip(left, vals)]
+    fig, axes = plt.subplots(2, 1, figsize=(8.4, 7.0), sharex=True,
+                             layout="constrained")
 
-    # Anchor labels carry the rate that makes each one what it is.
-    ax.set_yticks(list(ypos))
-    ax.set_yticklabels([f"from {y}\n({d.loc[y, 'base_rate']:.1f}% rates)" for y in d.index])
-    ax.tick_params(axis="y", length=0)
+    panels = (
+        (axes[0], "", "Nominal dollars",
+         "Counts inflation as house-price growth"),
+        (axes[1], "real_", f"Constant {REAL_DOLLAR_BASE_YEAR} dollars",
+         "Real appreciation only -- the affordability-relevant split"),
+    )
 
-    # Total dollar change sits outside the bar; the shares are of this number.
-    for y, total in enumerate(d["total_change"]):
-        ax.annotate(f"+${total:,.0f}/mo", xy=(100, y), xytext=(8, 0),
-                    textcoords="offset points", va="center", ha="left",
-                    fontsize=8.5, color=INK, annotation_clip=False)
+    for ax, prefix, title, subtitle in panels:
+        price = d[f"{prefix}price_effect"]
+        rate = d[f"{prefix}rate_effect"]
 
-    # Title and subtitle as separate texts: a "\n" inside set_title() renders
-    # both lines at title weight, which gives the subtitle equal billing.
-    ax.set_title("Was it prices or rates? It depends entirely on when you start",
-                 loc="left", pad=26)
-    ax.annotate(f"Share of the rise in the monthly payment on the median home, "
-                f"through {end_year}",
-                xy=(0, 1), xycoords="axes fraction", xytext=(0, 8),
-                textcoords="offset points", fontsize=9.5, color=MUTED,
-                ha="left", va="bottom")
-    ax.set_xlim(0, 100)
-    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
-    ax.grid(axis="x", color=GRID, lw=0.7)
-    ax.set_axisbelow(True)
-    ax.invert_yaxis()
-    ax.legend(frameon=False, loc="lower center", bbox_to_anchor=(0.5, -0.34), ncol=3)
+        # Shade the anchors from which rates are the larger factor.
+        rate_wins = rate > price
+        ax.fill_between(d.index, 0, 1, where=rate_wins, transform=ax.get_xaxis_transform(),
+                        color=ACCENT, alpha=0.055, lw=0)
+
+        ax.axhline(0, color=MUTED, lw=0.9)
+        ax.plot(d.index, price, color=COOL, lw=2.2, label="Higher prices")
+        ax.plot(d.index, rate, color=ACCENT, lw=2.2, label="Higher interest rates")
+
+        # The crossover: first anchor from which rates carry more of the rise.
+        if rate_wins.any():
+            cross = int(d.index[rate_wins].min())
+            ax.axvline(cross, color=INK, lw=1.0, ls=(0, (4, 3)))
+            # Flip the label inside the axes when the crossover sits near the
+            # right edge, or it is written off the end of the panel.
+            span = d.index.max() - d.index.min()
+            late = (cross - d.index.min()) / span > 0.7
+            ax.annotate(f"rates take over\nfrom {cross}", xy=(cross, 0.94),
+                        xycoords=ax.get_xaxis_transform(),
+                        xytext=(-6 if late else 6, 0),
+                        textcoords="offset points", fontsize=8.5, color=INK,
+                        ha="right" if late else "left", va="top")
+
+        ax.set_title(title, loc="left", pad=22)
+        ax.annotate(subtitle, xy=(0, 1), xycoords="axes fraction", xytext=(0, 7),
+                    textcoords="offset points", fontsize=9, color=MUTED,
+                    ha="left", va="bottom")
+        ax.set_ylabel("Added $/month")
+        _dollars(ax)
+        _style(ax, xlim=(d.index.min(), d.index.max()))
+
+    # Inside the top panel: the two lines are far apart at the left edge, so the
+    # band between them is the one place the legend collides with neither them,
+    # the crossover labels, nor the source footer under the figure.
+    axes[0].legend(frameon=False, loc="center left")
+    axes[1].set_xlabel("Anchor year the comparison starts from")
+    axes[1].set_xticks(range(d.index.min(), d.index.max() + 1, 2))
+
+    fig.suptitle("Was it prices or rates? It depends on when you start "
+                 "-- and on whether\nyou count inflation as house-price growth",
+                 fontsize=12, fontweight="bold", ha="left", x=0.008)
     _save(fig, "07_decomposition_sensitivity.png",
-          f"Anchoring on {SHOCK_START_YEAR}, the all-time low in mortgage rates, "
-          f"is the choice most favourable to a rates-driven reading.")
+          f"Each x-value re-runs the split from that anchor through {end_year}. "
+          f"Deflating moves the crossover eight years earlier.")
 
 
 def print_findings(df, decomp, sens):
@@ -397,15 +410,29 @@ def print_findings(df, decomp, sens):
     print(f"   interaction       ${r['interaction']:>8,.0f}/mo  ({r['interaction_share']:.0f}%)")
 
     end_year = int(sens["end_year"].iloc[0])
-    print(f"\n3. ROBUSTNESS: that split depends on the base year")
-    print(f"   (share of the payment rise through {end_year})")
-    print(f"   {'from':>6}  {'rate then':>9}  {'total':>9}  {'price':>6}  {'rate':>6}  {'blames':>6}")
-    for yr, row in sens.iterrows():
-        print(f"   {yr:>6}  {row['base_rate']:>8.1f}%  ${row['total_change']:>8,.0f}"
-              f"  {row['price_effect_share']:>5.0f}%  {row['rate_effect_share']:>5.0f}%"
-              f"  {row['dominant_factor']:>6}")
-    print(f"   Anchoring on {SHOCK_START_YEAR} -- the all-time rate low -- maximises the")
-    print(f"   rate share. From a pre-pandemic {sens.index.min()} baseline, prices matter more.")
+    print(f"\n3. ROBUSTNESS: the split depends on the anchor -- and on inflation")
+    print(f"   (effect on the monthly payment, each anchor -> {end_year})")
+    print(f"   {'':>6}  {'nominal $/mo':>23}  {'constant-' + str(REAL_DOLLAR_BASE_YEAR) + ' $/mo':>23}")
+    print(f"   {'from':>6}  {'price':>7} {'rate':>7} {'blames':>7}"
+          f"  {'price':>7} {'rate':>7} {'blames':>7}")
+    for yr, r in sens.iterrows():
+        print(f"   {yr:>6}  {r['price_effect']:>7,.0f} {r['rate_effect']:>7,.0f} "
+              f"{r['dominant_factor']:>7}  {r['real_price_effect']:>7,.0f} "
+              f"{r['real_rate_effect']:>7,.0f} {r['real_dominant_factor']:>7}")
+
+    def crossover(col):
+        rate_led = sens.index[sens[col].eq("rate")]
+        return int(rate_led.min()) if len(rate_led) else None
+
+    nom_x, real_x = crossover("dominant_factor"), crossover("real_dominant_factor")
+    cpi_growth = (df.loc[end_year, "cpi"] / df.loc[sens.index.min() + 1, "cpi"] - 1) * 100
+    print(f"   crossover: rates lead from {nom_x} in nominal terms, "
+          f"but from {real_x} once deflated.")
+    print(f"   Over this window most nominal \"price growth\" is simply CPI "
+          f"(+{cpi_growth:.0f}% since {sens.index.min() + 1}).")
+    print(f"   Deflated, rates are the larger factor from {real_x} on -- which is the")
+    print(f"   affordability-relevant reading, and it supports the rates story more")
+    print(f"   strongly than the {SHOCK_START_YEAR} anchor alone ever did.")
 
     print(f"\n4. Young households got a raise and still lost ground ({start} -> {end}):")
     print(f"   median income 25-34  ${g(start,'income_young'):>9,.0f} -> ${g(end,'income_young'):>9,.0f}"
