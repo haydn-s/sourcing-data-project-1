@@ -19,6 +19,7 @@ from config import (
     FRONT_END_DTI,
     HIGH_RATE_ERA_YEAR,
     HOR_BASE_YEAR,
+    INDEX_BASE_YEAR,
     PROCESSED,
     REAL_DOLLAR_BASE_YEAR,
     SAVINGS_RATE,
@@ -153,21 +154,28 @@ def fig_income_vs_required(df):
 
 
 def fig_price_vs_payment(df):
-    """Prices barely moved after 2021; the payment exploded."""
-    d = df.loc[2015:].dropna(subset=["median_price", "monthly_piti"])
-    base = d.loc[2015]
-    price = d["median_price"] / base["median_price"] * 100
-    pay = d["monthly_piti"] / base["monthly_piti"] * 100
+    """Over 20 years price and payment land in the same place. The gap is recent.
 
-    fig, ax = plt.subplots(figsize=(8, 4.6))
-    ax.fill_between(d.index, price, pay, where=pay > price,
-                    color=ACCENT, alpha=0.10, lw=0)
+    An earlier version of this chart indexed at 2015, which made the two look
+    permanently divergent. They are not: from 2005 the median price is up ~73%
+    and the payment on it ~80%. What is real is the *post-2021* split, so the
+    chart shows the whole window and shades the shock instead of picking the
+    base year that flatters the claim.
+    """
+    base_yr = INDEX_BASE_YEAR
+    d = df.loc[base_yr:].dropna(subset=["median_price", "monthly_piti"])
+    price = d["median_price"] / d.loc[base_yr, "median_price"] * 100
+    pay = d["monthly_piti"] / d.loc[base_yr, "monthly_piti"] * 100
+
+    fig, ax = plt.subplots(figsize=(8.4, 4.6))
+    shock, last = SHOCK_START_YEAR, int(d.index.max())
+
+    # Shade the shock window -- the span the divergence actually belongs to.
+    ax.axvspan(shock, last, color=ACCENT, alpha=0.055, lw=0)
     ax.plot(d.index, price, color=COOL, lw=2.2, label="Median home price")
     ax.plot(d.index, pay, color=ACCENT, lw=2.2, label="Monthly payment on that home")
     ax.axhline(100, color=MUTED, lw=0.9, ls=(0, (4, 3)))
 
-    # Label the endpoints so the divergence is readable without the axis.
-    last = d.index.max()
     for series, color in ((pay, ACCENT), (price, COOL)):
         ax.annotate(f"+{series.loc[last] - 100:.0f}%",
                     xy=(last, series.loc[last]), xytext=(5, 0),
@@ -175,10 +183,18 @@ def fig_price_vs_payment(df):
                     fontweight="bold", va="center", ha="left",
                     annotation_clip=False)
 
-    ax.set_title("Same house, two very different stories (2015 = 100)")
-    ax.set_ylabel("Index, 2015 = 100")
-    _style(ax, xlim=(2015, last + 0.55))
-    ax.set_xticks(range(2015, last + 1, 2))
+    # The claim this chart is actually making, stated over the span it holds on.
+    dp = (d.loc[last, "median_price"] / d.loc[shock, "median_price"] - 1) * 100
+    dy = (d.loc[last, "monthly_piti"] / d.loc[shock, "monthly_piti"] - 1) * 100
+    ax.annotate(f"Since {shock}:\nprice +{dp:.0f}%, payment +{dy:.0f}%",
+                xy=(shock + (last - shock) / 2, 0.06),
+                xycoords=ax.get_xaxis_transform(), fontsize=8.5, color=INK,
+                ha="center", va="bottom")
+
+    ax.set_title(f"Over two decades they land together. The gap opens after {shock}.")
+    ax.set_ylabel(f"Index, {base_yr} = 100")
+    _style(ax, xlim=(base_yr, last + 0.9))
+    ax.set_xticks(range(base_yr, last + 1, 3))
     ax.legend(frameon=False, loc="upper left")
     _save(fig, "02_price_vs_payment.png", _partial_note(d))
 

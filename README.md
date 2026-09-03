@@ -205,6 +205,13 @@ was untouched. The `real_*` columns deflate the base-year price to
 Both are written; the real one is the affordability-relevant reading, and the
 divergence between them is itself reported rather than quietly resolved.
 
+**The same trap, one figure over.** `02_price_vs_payment.png` indexes price and
+payment to a common base year, and an earlier version indexed at 2015 — which
+made the two look permanently divergent. They are not: from 2005 the median price
+is up ~73% and the payment on it ~80%. The divergence is real but it is a
+*post-2021* phenomenon, so the figure now runs the full window (`INDEX_BASE_YEAR`)
+and shades the shock rather than choosing the base that flatters the claim.
+
 **On unreadable shares.** Percentage shares only mean something while both
 effects push the same way. Real prices fell after 2021, so from those anchors the
 price effect is negative and the shares run past 100% and below zero. Those rows
@@ -359,6 +366,9 @@ financial advice.
 ## Deliverables
 
 - **Podcast episode:** script and show notes (not yet in this repo)
-- **Static data viewer:** [`web/`](web/) — see [`web/README.md`](web/README.md)
+- **Story page:** [`web/`](web/) — the seven figures in narrative order, with an
+  interactive explorer for all 17 source series underneath. Serve from the repo
+  root (`python3 -m http.server 8000`, then `/web/`); see
+  [`web/README.md`](web/README.md)
 - **GitHub repository:** this repo
 - **Presentation:** September 29th, in class

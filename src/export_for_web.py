@@ -10,19 +10,22 @@ import pandas as pd
 from config import ROOT, PROCESSED
 
 
+# Which processed table feeds which JSON bundle. Each file appears exactly once:
+# an earlier version listed annual_panel.csv under all three categories, which
+# tripled the payload for no gain -- the viewer merges every bundle into one
+# series map keyed by column name and prefers the longest series, so the annual
+# panel always lost to fred_monthly.csv anyway. It is dropped for that reason.
 CATEGORY_MAP = {
     "macro_trends": [
         "fred_monthly.csv",
-        "annual_panel.csv",
     ],
     "housing_market": [
-        "homeownership_age.csv",
         "affordability.csv",
-        "annual_panel.csv",
+        "homeownership_age.csv",
     ],
     "consumer_debt": [
         "payment_decomposition.csv",
-        "annual_panel.csv",
+        "decomposition_sensitivity.csv",
     ],
 }
 

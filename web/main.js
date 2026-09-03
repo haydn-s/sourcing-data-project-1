@@ -1,9 +1,65 @@
+/* Interactive explorer for the processed data exported by src/export_for_web.py.
+ *
+ * One card, one series, one axis. An earlier version of this file rendered
+ * several "summary" charts that put incommensurate series on a shared y-axis
+ * (a mortgage rate in percent beside a median price in dollars, labelled
+ * "Value (units vary)"), plus special cases for three series the pipeline never
+ * produced. Those are gone: a chart with two scales on one axis is the single
+ * easiest way to mislead a reader, and the story figures in the section above
+ * already carry the narrative.
+ */
+
+/* Palette shared with the matplotlib figures in figures/, so the page reads as
+ * one system. Validated for contrast and colour-vision separation. */
+const INK = '#1d2433';
+const COOL = '#2b6cb0';
+const MUTED = '#8a94a6';
+const GRID = '#dfe3ea';
+
+/* Every series the explorer can draw: a human label, the unit for the y-axis,
+ * and a one-line note on why it is in the project at all. Without this the axis
+ * title falls back to a FRED series ID, which tells a reader nothing. */
+const SERIES_META = {
+  MORTGAGE30US:    {label: '30-Year Fixed Mortgage Rate', unit: 'Percent', note: 'Freddie Mac PMMS. The single biggest lever on the monthly payment.'},
+  MSPUS:           {label: 'Median Sales Price of Houses Sold', unit: 'U.S. dollars', note: 'Census/HUD. The price series every figure in the story is built on.'},
+  ASPUS:           {label: 'Average Sales Price of Houses Sold', unit: 'U.S. dollars', note: 'Mean rather than median, so it is pulled upward by luxury sales.'},
+  CSUSHPINSA:      {label: 'Case-Shiller National Home Price Index', unit: 'Index, Jan 2000 = 100', note: 'Repeat-sales index: tracks the same homes over time, so it is not distorted by changes in what sells.'},
+  RHORUSQ156N:     {label: 'Homeownership Rate, All Ages', unit: 'Percent', note: 'The all-ages benchmark the under-35 rate is compared against.'},
+  PRIME:           {label: 'Bank Prime Loan Rate', unit: 'Percent', note: 'Short-term borrowing cost; drives HELOCs and adjustable-rate products.'},
+  DGS10:           {label: '10-Year Treasury Yield', unit: 'Percent', note: 'The benchmark 30-year mortgage rates are priced against.'},
+  DGS30:           {label: '30-Year Treasury Yield', unit: 'Percent', note: 'Long-duration baseline for real-estate debt pricing.'},
+  MEHOINUSA672N:   {label: 'Real Median Household Income', unit: 'Dollars (2024)', note: 'All ages, inflation-adjusted by Census using CPI-U-RS.'},
+  MEHOINUSA646N:   {label: 'Median Household Income', unit: 'Dollars (nominal)', note: 'All ages, current dollars. The affordability ratio uses nominal figures throughout.'},
+  SLOAS:           {label: 'Student Loans Outstanding', unit: 'Millions of dollars', note: 'A competing claim on the same income a mortgage would be paid from.'},
+  CCLACBW027SBOG:  {label: 'Credit Card &amp; Revolving Credit', unit: 'Billions of dollars', note: "Counted by a lender's back-end DTI test alongside the mortgage."},
+  GDP:             {label: 'Gross Domestic Product', unit: 'Billions of dollars', note: 'Overall economic activity, for context on the demand side.'},
+  CPIAUCSL:        {label: 'Consumer Price Index (CPI-U)', unit: 'Index, 1982-84 = 100', note: 'Used to deflate to constant dollars — the adjustment that moves the crossover in figure 4 by eight years.'},
+  UNRATE:          {label: 'Unemployment Rate', unit: 'Percent', note: 'Job-market strength underwrites both demand and the ability to keep paying.'},
+  POPTHM:          {label: 'U.S. Population', unit: 'Thousands', note: 'The denominator for the per-capita debt measures.'},
+  G160651A027NBEA: {label: 'Federal Outlays: Housing &amp; Urban Development', unit: 'Billions of dollars', note: 'Federal spending on housing programmes.'},
+
+  affordability_index:      {label: 'Affordability Index (age 25–34)', unit: 'Index, 100 = exactly qualifies', note: 'Median young-household income as a share of the income a lender requires.'},
+  monthly_piti:             {label: 'Monthly Payment on the Median Home', unit: 'Dollars per month', note: 'Principal, interest, taxes and insurance at 20% down on a 30-year fixed.'},
+  required_income:          {label: 'Income Required to Qualify', unit: 'Dollars per year', note: 'The 28% front-end DTI rule, inverted.'},
+  years_to_save_down:       {label: 'Years to Save a 20% Down Payment', unit: 'Years', note: 'At a 10% savings rate — the barrier a payment-based measure misses.'},
+  hor_under_35:             {label: 'Homeownership Rate, Under 35', unit: 'Percent', note: 'The outcome variable the whole project points at.'},
+  consumer_debt_per_capita: {label: 'Consumer Debt per Capita', unit: 'Dollars', note: 'Student loans plus revolving credit, per person.'}
+};
+
+const DATA_FILES = [
+  'data/macro_trends.json',
+  'data/housing_market.json',
+  'data/consumer_debt.json'
+];
+
 async function fetchJson(path) {
   const r = await fetch(path, {cache: 'no-store'});
   if (!r.ok) throw new Error(`fetch ${path}: ${r.status}`);
   return r.json();
 }
 
+/* The x column is whichever one carries time. Bundles differ: fred_monthly is
+ * indexed by date, the affordability panel by year. */
 function guessXColumn(columns) {
   const lc = columns.map(c => c.toLowerCase());
   for (const target of ['date', 'year', 'time']) {
@@ -13,317 +69,143 @@ function guessXColumn(columns) {
   return columns[0];
 }
 
-function findKeysByKeywords(seriesMap, keywords){
-  const keys = Object.keys(seriesMap || {});
-  const found = [];
-  const lower = keywords.map(k => k.toLowerCase());
-  for (const k of keys){
-    const kl = k.toLowerCase();
-    for (const kw of lower){
-      if (kl.includes(kw)){
-        found.push(k);
-        break;
-      }
-    }
-  }
-  return found;
-}
-
-function renderAgeTable(card, d, fieldName){
-  // d: {x:[], y:[]}
-  const wrap = card.querySelector('.age-table-wrap');
-  const filterInput = card.querySelector('.age-filter');
-  const rowsSelect = card.querySelector('.age-rows');
-  if (!wrap) return;
-  function buildTable(){
-    const filter = (filterInput && filterInput.value || '').toLowerCase().trim();
-    const rowsPer = Number(rowsSelect.value);
-    // build rows array
-    const rows = [];
-    for (let i=0;i<d.x.length;i++){
-      const x = d.x[i];
-      const y = d.y[i];
-      const yStr = (y==null)?'':String(y);
-      const rowText = `${x} ${yStr}`.toLowerCase();
-      if (filter && !rowText.includes(filter)) continue;
-      rows.push({x,y});
-    }
-    // slice
-    const display = (rowsPer>0) ? rows.slice(0, rowsPer) : rows;
-    // render table
-    wrap.innerHTML = '';
-    const table = document.createElement('table');
-    table.style.width = '100%';
-    table.style.borderCollapse = 'collapse';
-    const thead = document.createElement('thead');
-    thead.innerHTML = `<tr><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd;">Date</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd;">Age</th></tr>`;
-    table.appendChild(thead);
-    const tb = document.createElement('tbody');
-    for (const r of display){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td style="padding:6px;border-bottom:1px solid #f2f2f2;">${r.x}</td><td style="padding:6px;border-bottom:1px solid #f2f2f2;text-align:right;">${r.y==null?'':r.y}</td>`;
-      tb.appendChild(tr);
-    }
-    table.appendChild(tb);
-    wrap.appendChild(table);
-  }
-  // attach handlers
-  if (filterInput) filterInput.addEventListener('input', buildTable);
-  if (rowsSelect) rowsSelect.addEventListener('change', buildTable);
-  buildTable();
-}
-
-function toNumber(v){
+function toNumber(v) {
   if (v == null) return null;
   if (typeof v === 'number') return v;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-function renderSeriesInCard(card, seriesData, seriesName){
-  const plotDiv = document.createElement('div');
-  plotDiv.className = 'plot';
-  card.appendChild(plotDiv);
-  const trace = {
-    x: seriesData.x,
-    y: seriesData.y,
-    name: seriesName,
-    mode: 'lines+markers'
-  };
-  const titleText = (card.querySelector('h3') || {}).textContent || seriesName;
-  const layout = {margin:{t:40}, title:{text: titleText}, legend:{orientation:'h'}, xaxis:{title:'Date'}, yaxis:{title: seriesName}};
-  Plotly.newPlot(plotDiv, [trace], layout);
-}
-
-async function loadAllData(){
-  const paths = ['data/macro_trends.json','data/housing_market.json','data/consumer_debt.json'];
+/* Merge every bundle into one map keyed by column name. Where a column appears
+ * in more than one bundle, keep whichever version carries more observations. */
+async function loadAllData() {
   const all = {};
-  for (const p of paths){
-    try{
-      const arr = await fetchJson(p);
-      if (!Array.isArray(arr)) continue;
-      for (const ds of arr){
-        const cols = ds.columns || [];
-        const records = ds.records || [];
-        if (records.length === 0) continue;
-        const xcol = guessXColumn(cols);
-        const xvals = records.map(r => r[xcol]);
-        for (const col of cols){
-          if (col === xcol) continue;
-          const yvals = records.map(r => toNumber(r[col]));
-          // prefer longer series when overwriting
-          const existing = all[col];
-          if (!existing || (yvals.filter(v=>v!=null).length > existing.y.filter(v=>v!=null).length)){
-            all[col] = {x: xvals, y: yvals};
-          }
-        }
+  for (const path of DATA_FILES) {
+    let bundles;
+    try {
+      bundles = await fetchJson(path);
+    } catch (e) {
+      console.warn('could not load', path, e);
+      continue;
+    }
+    if (!Array.isArray(bundles)) continue;
+
+    for (const ds of bundles) {
+      const cols = ds.columns || [];
+      const records = ds.records || [];
+      if (!records.length) continue;
+      const xcol = guessXColumn(cols);
+      const x = records.map(r => r[xcol]);
+
+      for (const col of cols) {
+        if (col === xcol) continue;
+        const y = records.map(r => toNumber(r[col]));
+        const count = y.filter(v => v != null).length;
+        if (!count) continue;
+        const existing = all[col];
+        if (!existing || count > existing.count) all[col] = {x, y, count};
       }
-    }catch(e){
-      console.warn('failed loading', p, e);
     }
   }
   return all;
 }
 
-async function refreshAll(){
+function renderCard(card, series, key) {
+  const meta = SERIES_META[key] || {label: key, unit: '', note: ''};
+  card.innerHTML = `
+    <h3>${meta.label}</h3>
+    <p class="card-note">${meta.note}</p>
+    <div class="chart"></div>
+    <p class="card-id"><code>${key}</code></p>`;
+
+  const chart = card.querySelector('.chart');
+
+  if (!series) {
+    chart.classList.add('chart-empty');
+    chart.textContent = 'Series not present in the exported data — run python src/run_all.py';
+    return;
+  }
+
+  const trace = {
+    x: series.x,
+    y: series.y,
+    mode: 'lines',
+    line: {color: COOL, width: 2},
+    hovertemplate: `%{x}<br><b>%{y:,.2f}</b> ${meta.unit}<extra></extra>`
+  };
+
+  /* A single series needs no legend — the heading names it. Grid and axes stay
+   * recessive so the line is the only thing carrying weight. */
+  const layout = {
+    margin: {t: 8, r: 12, b: 40, l: 64},
+    height: 260,
+    showlegend: false,
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: {color: INK, size: 11, family: 'inherit'},
+    xaxis: {gridcolor: GRID, zeroline: false, linecolor: GRID, tickcolor: GRID},
+    yaxis: {
+      title: {text: meta.unit, font: {size: 10, color: MUTED}},
+      gridcolor: GRID, zeroline: false, linecolor: GRID, tickcolor: GRID
+    },
+    hoverlabel: {bgcolor: '#ffffff', bordercolor: GRID, font: {color: INK}}
+  };
+
+  Plotly.newPlot(chart, [trace], layout, {responsive: true, displayModeBar: false});
+}
+
+async function renderExplorer() {
+  const cards = document.querySelectorAll('.card[data-series]');
+  if (!cards.length) return;
   const seriesMap = await loadAllData();
-
-  // For each card that declares a data-series attribute, attempt to render that series
-  document.querySelectorAll('.card[data-series]').forEach(card => {
-    const seriesName = card.getAttribute('data-series');
-    let seriesData = seriesMap[seriesName];
-    // fallback: case-insensitive or substring matches
-    if (!seriesData) {
-      const keyLower = seriesName.toLowerCase();
-      const foundKey = Object.keys(seriesMap).find(k => k.toLowerCase() === keyLower) ||
-        Object.keys(seriesMap).find(k => k.toLowerCase().includes(keyLower)) ||
-        Object.keys(seriesMap).find(k => keyLower.includes(k.toLowerCase()));
-      if (foundKey) seriesData = seriesMap[foundKey];
-    }
-    // special rendering for Figure 5: ages at home purchase
-    if (!seriesData && seriesName && seriesName.startsWith('FIG5')){
-      // look for homeownership age grouped percentages
-      const needed = ['hor_under_35','hor_35_44','hor_45_54','hor_55_64','hor_65_plus','hor_all'];
-      const found = {};
-      for (const k of Object.keys(seriesMap)){
-        const kl = k.toLowerCase();
-        for (const need of needed){
-          if (kl.includes(need)) found[need] = k;
-        }
-      }
-      const groups = ['hor_under_35','hor_35_44','hor_45_54','hor_55_64','hor_65_plus'];
-      const missing = groups.every(g => found[g]);
-      if (missing){
-        const d0 = seriesMap[found[groups[0]]];
-        const allX = d0.x || [];
-        // default sample interval control: show every Nth record
-        const sampleControlId = 'fig5-sample-interval';
-        // remove existing plot divs
-        card.querySelectorAll('.plot').forEach(n=>n.remove());
-        const controlWrap = card.querySelector('.fig5-controls') || document.createElement('div');
-        controlWrap.className = 'fig5-controls';
-        controlWrap.style.marginTop = '0.5rem';
-        controlWrap.innerHTML = `Show every <select id="${sampleControlId}"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="6">6</option></select> time points`;
-        // ensure control is appended once
-        if (!card.querySelector('.fig5-controls')) card.appendChild(controlWrap);
-        const plotDiv = document.createElement('div');
-        plotDiv.className = 'plot';
-        plotDiv.style.minHeight = '260px';
-        card.appendChild(plotDiv);
-
-        function renderGrouped(sample){
-          const idxs = [];
-          for (let i=0;i<allX.length;i+=sample) idxs.push(i);
-          const x = idxs.map(i=>allX[i]);
-          const traces = [];
-          const colors = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd'];
-          for (let gi=0; gi<groups.length; gi++){
-            const gkey = found[groups[gi]];
-            const series = seriesMap[gkey];
-            const y = idxs.map(i => series.y[i]);
-            traces.push({x, y, name: groups[gi].replace('hor_','').replace(/_/g,'-'), type:'bar', marker:{color:colors[gi]}});
-          }
-          const layout = {margin:{t:20}, barmode:'group', legend:{orientation:'h'}, xaxis:{title:'Date'}, yaxis:{title:'Percent homeowners'}};
-          Plotly.newPlot(plotDiv, traces, layout, {responsive:true});
-        }
-
-        const sel = document.getElementById(sampleControlId);
-        if (sel) sel.addEventListener('change', ()=> renderGrouped(Number(sel.value)));
-        // initial render
-        const initial = (document.getElementById(sampleControlId) && Number(document.getElementById(sampleControlId).value)) || 3;
-        renderGrouped(initial);
-        return;
-      }
-    }
-    // special handling for placeholder figure cards
-    if (!seriesData && seriesName && seriesName.startsWith('FIG5')){
-      // Figure 5: try to find a series that looks like age/homeownership
-      const keys = findKeysByKeywords(seriesMap, ['age','home','ownership','purchase']);
-      if (keys.length) seriesData = seriesMap[keys[0]];
-    }
-    // Figure 6: debt & downpayment - render multiple matching series in one card
-    if (!seriesData && seriesName && seriesName.startsWith('FIG6')){
-      const debtKeys = findKeysByKeywords(seriesMap, ['debt','loan','credit','balance','savings','downpay','downpayment','payment','afford']);
-      if (debtKeys.length){
-        // remove existing plot divs
-        card.querySelectorAll('.plot').forEach(n=>n.remove());
-        const plotDiv = document.createElement('div');
-        plotDiv.className = 'plot';
-        card.appendChild(plotDiv);
-        const traces = debtKeys.map(k=>({x: seriesMap[k].x, y: seriesMap[k].y, name: k, mode:'lines'}));
-        const layout = {margin:{t:40}, title:{text: (card.querySelector('h3')||{}).textContent || 'Debt & Savings'}, xaxis:{title:'Date'}, yaxis:{title:'Value (units vary)'}};
-        Plotly.newPlot(plotDiv, traces, layout);
-        return; // done with this card
-      }
-    }
-    // remove existing plot divs
-    card.querySelectorAll('.plot').forEach(n=>n.remove());
-    if (!seriesData){
-      const msg = document.createElement('div');
-      msg.className = 'plot';
-      msg.textContent = 'series not found in exported data';
-      card.appendChild(msg);
-      return;
-    }
-    renderSeriesInCard(card, seriesData, seriesName);
+  cards.forEach(card => {
+    const key = card.getAttribute('data-series');
+    renderCard(card, seriesMap[key], key);
   });
-  // render end-of-page summary figures
-  try{
-    await renderSummaryFigures(seriesMap);
-  }catch(e){
-    console.warn('failed rendering summary figures', e);
+}
+
+/* Tabs. Panels and buttons pair up by data-tab / id within a data-tabgroup, so
+ * the markup carries the wiring instead of inline onclick handlers naming
+ * element IDs. Plotly needs a resize nudge on reveal: a chart laid out inside a
+ * hidden panel measures zero width. */
+function initTabs() {
+  document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.closest('[data-tabgroup]').dataset.tabgroup;
+      const target = btn.dataset.tab;
+
+      document.querySelectorAll(`.tab-btn[data-tab]`).forEach(b => {
+        if (b.closest('[data-tabgroup]').dataset.tabgroup === group) {
+          b.classList.toggle('is-active', b === btn);
+        }
+      });
+      document.querySelectorAll(`.tab-panel[data-tabgroup="${group}"]`).forEach(panel => {
+        const show = panel.id === target;
+        panel.hidden = !show;
+        panel.classList.toggle('is-active', show);
+        if (show) {
+          // Deliberately NOT '.plot': Plotly renders an internal
+          // <g class="plot"> inside every chart's SVG, so that selector matches
+          // twice per card and hands resize() an SVG node.
+          panel.querySelectorAll('.chart').forEach(el => Plotly.Plots.resize(el));
+        }
+      });
+    });
+  });
+}
+
+/* fetch() is blocked on file:// URLs, so the explorer cannot load there. The
+ * story figures are <img> and render fine either way — say so, rather than
+ * leaving a reader with silently empty cards. */
+function checkProtocol() {
+  if (location.protocol === 'file:') {
+    const banner = document.getElementById('server-warning');
+    if (banner) banner.hidden = false;
   }
 }
 
-// Render three summary figures in the final section
-async function renderSummaryFigures(seriesMap){
-  const containerId = 'summary-figures';
-  let container = document.getElementById(containerId);
-  if (!container){
-    const sec = document.createElement('section');
-    sec.className = 'fp-section';
-    sec.innerHTML = `<div class="content-wrap"><div class="category"><h2>Summary Figures</h2><div id="${containerId}" class="datasets"></div></div></div>`;
-    // insert after the debt section so summaries appear earlier
-    const debtSection = document.getElementById('debt');
-    if (debtSection && debtSection.parentNode){
-      debtSection.parentNode.insertBefore(sec, debtSection.nextSibling);
-    } else {
-      document.querySelector('main').appendChild(sec);
-    }
-    container = document.getElementById(containerId);
-  }
-  container.innerHTML = '';
-
-  const figures = [
-    {title: 'Mortgage Rates vs Prices', series: ['MORTGAGE30US','MSPUS'], keywords: ['mortgage','msp','asp','price','mspus','mortgage30']},
-    {title: 'Inflation & Income', series: ['CPIAUCSL','MEHOINUSA672N'], keywords: ['cpi','inflation','income','median income','mehoin']},
-    {title: 'Debt & Credit', series: ['SLOAS','CCLACBW027SBOG'], keywords: ['student','loan','credit','debt','sloas','cc']},
-  ];
-
-  for (const f of figures){
-    const card = document.createElement('div');
-    card.className = 'card';
-    const h = document.createElement('h3');
-    h.textContent = f.title;
-    card.appendChild(h);
-    const plot = document.createElement('div');
-    plot.className = 'plot';
-    container.appendChild(card);
-    card.appendChild(plot);
-
-    let traces = [];
-    for (const s of f.series){
-      const d = seriesMap[s];
-      if (!d) continue;
-      traces.push({x:d.x, y:d.y, name:s, mode:'lines'});
-    }
-    // fallback: try keyword matching if explicit codes missing
-    if (traces.length === 0 && f.keywords){
-      const keys = findKeysByKeywords(seriesMap, f.keywords);
-      // take up to 3 matches
-      for (const k of keys.slice(0,3)){
-        const d = seriesMap[k];
-        if (!d) continue;
-        traces.push({x:d.x, y:d.y, name:k, mode:'lines'});
-      }
-    }
-    if (traces.length===0){
-      plot.textContent = 'no data available';
-    } else {
-      const layout = {margin:{t:40}, title:{text: f.title}, xaxis:{title:'Date'}, yaxis:{title:'Value (units vary)'}};
-      Plotly.newPlot(plot, traces, layout);
-    }
-  }
-}
-
-document.getElementById('refresh').addEventListener('click', refreshAll);
-
-window.addEventListener('load', refreshAll);
-
-// show/hide details when Info button is clicked
-document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('.info-btn');
-  if (!btn) return;
-  const card = btn.closest('.card');
-  if (!card) return;
-  card.classList.toggle('show');
-});
-
-// ethics card toggles
-document.addEventListener('click', (e)=>{
-  const b = e.target.closest('.ethics-btn');
-  if (!b) return;
-  const card = b.closest('.ethic-card');
-  if (!card) return;
-  const more = card.querySelector('.ethics-more');
-  if (!more) return;
-  more.style.display = (more.style.display === 'none') ? 'block' : 'none';
-});
-
-// If the page is opened via file://, inform the user that fetch() will fail
-window.addEventListener('load', ()=>{
-  if (location.protocol === 'file:'){
-    const w = document.getElementById('server-warning');
-    if (w) w.style.display = 'block';
-  }
+window.addEventListener('DOMContentLoaded', () => {
+  checkProtocol();
+  initTabs();
+  renderExplorer();
 });

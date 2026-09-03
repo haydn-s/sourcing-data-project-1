@@ -99,6 +99,13 @@ DECOMP_BASE_YEAR = SHOCK_START_YEAR
 # approaches (and then crosses) zero and percentage shares stop meaning anything.
 DECOMP_SENSITIVITY_BASE_YEARS = tuple(range(2005, SHOCK_START_YEAR + 1))
 
+# Index base for the price-vs-payment chart. Indexing at 2015 made price and
+# payment look wildly divergent; indexing at 2005 shows them ending up in almost
+# the same place (+73% vs +80%). The divergence is real but it is a *post-2021*
+# phenomenon, so the chart runs the full window and shades the shock rather than
+# choosing the base that flatters the claim.
+INDEX_BASE_YEAR = 2005
+
 # Constant-dollar base for every real (inflation-adjusted) series.
 # Nominal and real decompositions diverge sharply over long horizons: across 20
 # years most nominal "price growth" is simply CPI, so a nominal split credits
