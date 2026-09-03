@@ -268,6 +268,25 @@ python src/export_for_web.py  # viewer JSON     -> web/data/
 ```
 </details>
 
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+No network required — the suite runs against the committed CSVs. Three groups:
+
+| File | Covers |
+|---|---|
+| [`tests/test_features.py`](tests/test_features.py) | The mortgage maths against a hand-computed amortisation value, and the decomposition identity: `price_effect + rate_effect + interaction` must reconstruct `total_change` exactly, or the residual is hiding a bug rather than reporting one |
+| [`tests/test_clean.py`](tests/test_clean.py) | The two Census workbook parsers, against miniature fixtures that reproduce the real quirks — dot-leader quarter labels, footnote markers glued to years, duplicate years, and the two column-header rows. Also asserts each parser *fails loudly* when its assumed layout is gone |
+| [`tests/test_readme_claims.py`](tests/test_readme_claims.py) | Every number in this README, read back out of the markdown by regex and compared to `data/processed/`. Edit a figure in one place and not the other and this fails, naming the claim |
+
+`pytest -m "not requires_data"` skips the group that needs a pipeline run.
+[CI](.github/workflows/tests.yml) runs the suite on every push and additionally
+checks that the committed CSVs and JSON still regenerate byte-for-byte.
+
 ### Repository layout
 
 ```
@@ -284,9 +303,20 @@ python src/export_for_web.py  # viewer JSON     -> web/data/
 │   ├── raw/partner/    # Census workbooks + partner reference files
 │   └── processed/      # cleaned panels and engineered features
 ├── figures/            # generated PNGs
-├── web/                # static viewer: index.html + main.js + exported JSON
-└── requirements.txt
+├── web/                # story page: index.html + main.js + exported JSON
+├── tests/              # pytest suite (see above)
+├── .github/workflows/  # CI: tests + a staleness check on committed outputs
+├── pyproject.toml      # pytest config only; the project is scripts, not a package
+├── requirements.txt
+└── requirements-dev.txt
 ```
+
+**A note on imports.** `src/` has no `__init__.py`, and the modules import
+their siblings directly (`from config import ...`). That resolves because Python
+puts a script's own directory on `sys.path`, so everything must be run as a
+script path — `python src/eda.py`, never `python -m src.eda`. The test suite
+matches this via `pythonpath = ["src"]` in `pyproject.toml` rather than forcing a
+package refactor that would break the documented commands above.
 
 **A note on `src/ingest.py`:** FRED's CSV endpoint drops connections from
 clients sending an unrecognized `User-Agent`. Both a custom project UA and a

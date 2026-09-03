@@ -1,0 +1,43 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run the test suite
+        # The README-claims tests read data/processed/*.csv, which is committed,
+        # so the whole suite runs without touching the network. Deliberately NOT
+        # running src/run_all.py here: that would re-download every FRED series
+        # and Census workbook on each push, which is rude to a free public API
+        # and would make CI fail whenever a source is briefly unavailable.
+        run: pytest
+
+      - name: Check the committed outputs are reproducible
+        # Regenerating from committed CSVs needs no network either.
+        #
+        # Deliberately excludes figures/: matplotlib PNGs are not byte-identical
+        # across platforms — font rendering differs between this runner and a
+        # contributor's machine — so diffing images here would fail forever
+        # while telling us nothing. The CSV and JSON outputs are plain text and
+        # deterministic for the pinned numpy/pandas, so those are worth pinning.
+        run: |
+          python src/features.py
+          python src/eda.py
+          python src/export_for_web.py
+          git diff --stat --exit-code -- data/processed/ web/data/ \
+            || (echo "::error::Committed data is stale — run python src/run_all.py and commit the result." && exit 1)

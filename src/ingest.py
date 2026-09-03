@@ -41,7 +41,8 @@ BACKOFF_SCHEDULE = (5, 15, 30)
 
 def _get(url: str) -> bytes:
     last = None
-    for attempt, backoff in enumerate((*BACKOFF_SCHEDULE, None)):
+    # The trailing None is the final attempt: try, then give up rather than sleep.
+    for backoff in (*BACKOFF_SCHEDULE, None):
         try:
             # Connection: close — reused sockets are what FRED tends to drop.
             r = requests.get(url, timeout=TIMEOUT, headers=HEADERS)
