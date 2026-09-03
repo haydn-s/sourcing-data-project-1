@@ -11,7 +11,6 @@ import clean
 import eda
 import features
 import ingest
-import export_for_web
 
 
 def main() -> int:
@@ -25,7 +24,6 @@ def main() -> int:
         ("CLEAN    building tidy panels", clean.main),
         ("FEATURES engineering affordability metrics", features.main),
         ("EDA      figures and findings", eda.main),
-        ("WEB      export JSON for web UI", export_for_web.main),
     ]
     for title, fn in steps:
         print(f"\n{'=' * 72}\n{title}\n{'=' * 72}")
