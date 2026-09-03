@@ -25,6 +25,17 @@ Over the same two years, the median household headed by a 25–34 year old got a
 **14.6% raise** — and became dramatically *less* able to buy, because the income
 a bank required jumped **54%**, from about \$79,000 to \$122,000.
 
+That 71% is real, but it is a statement about **2021–2023**, and 2021 was the
+all-time low in mortgage rates. Measured from a pre-pandemic baseline instead,
+prices account for more of the increase than rates do. Both things are true, and
+together they are the actual story:
+
+> **Rates caused the shock. Prices caused the squeeze.**
+
+We report the full base-year sweep rather than picking the anchor that tells the
+better story — see [key finding 3](#key-findings) and
+[`figures/07_decomposition_sensitivity.png`](figures/07_decomposition_sensitivity.png).
+
 This project reconstructs that story from primary federal sources, engineers the
 affordability metrics a buyer actually faces, and packages it for a general
 audience as a podcast episode.
@@ -40,21 +51,35 @@ little or spend carelessly. The data does not support that explanation.
 
 1. **The payment moved, not the price.** 2021→2023: prices +11.4%, mortgage rate
    +130% (2.96% → 6.80%), monthly payment +54.4%.
-2. **Rates did the damage.** A counterfactual decomposition splits the
-   $1,002/month increase into $209 from prices (21%), $712 from rates (71%), and
-   $81 from their interaction (8%).
-3. **Young households out-earn the typical household.** Median income for
+2. **Rates did the damage — over that window.** A counterfactual decomposition
+   splits the $1,002/month increase into $209 from prices (21%), $712 from rates
+   (71%), and $81 from their interaction (8%).
+3. **But that split depends on where you start, and we say so.** Re-running the
+   decomposition from earlier anchors, measured through 2025:
+
+   | Anchor | Rate then | Total rise | Prices | Rates | Blames |
+   |---|---|---|---|---|---|
+   | 2021 | 3.0% | +$884/mo | 18% | **76%** | rates |
+   | 2020 | 3.1% | +$1,126/mo | 38% | **49%** | rates |
+   | 2019 | 3.9% | +$1,047/mo | **48%** | 40% | prices |
+   | 2015 | 3.8% | +$1,195/mo | **53%** | 33% | prices |
+
+   The dominant factor flips. Anchoring on 2021 — the rate trough — is the
+   choice most favourable to a rates-driven reading. Rates are the right
+   explanation for the *sudden* shock; prices are the right explanation for the
+   *decade-long* squeeze.
+4. **Young households out-earn the typical household.** Median income for
    householders aged 25–34 was $90,100 in 2024 versus $83,730 for all households
    — **1.08×** the all-ages median. The all-ages figure is dragged down by
    retirees. "Young people just don't earn enough" is not what the data shows.
-4. **They got a raise and still lost.** Income 25–34 rose 14.6% from 2021 to
+5. **They got a raise and still lost.** Income 25–34 rose 14.6% from 2021 to
    2023 while required income rose 54.4%. Our affordability index fell from 94.8
    to 70.3.
-5. **The 1980s were worse on the payment — but not on the down payment.** At
+6. **The 1980s were worse on the payment — but not on the down payment.** At
    13.9% mortgage rates, 1984's affordability index was 63.8, below 2024's 75.6.
    The down-payment barrier, however, has grown sharply: saving a 20% down
    payment took **6.7 years** of income in 1984 and **9.3 years** in 2024.
-6. **The outcome shows up in ownership.** The homeownership rate for households
+7. **The outcome shows up in ownership.** The homeownership rate for households
    under 35 is **36.0%** (2026 YTD) — still below its **37.4%** level in 1994,
    and well off its 2004 peak of 43.1%.
 
@@ -135,12 +160,22 @@ the other. Every assumption is a named constant in
 | `price_effect` / `rate_effect` / `interaction` | Two-factor counterfactual decomposition of the payment change vs 2021 | Separates how much of the pain is prices vs rates |
 | `hor_gap_under35` | All-ages homeownership rate − under-35 rate | The outcome variable |
 | `student_debt_per_capita` | `SLOAS` ÷ population | Competing claim on the same income |
+| `credit_card_debt_per_capita` | `CCLACBW027SBOG` ÷ population | The other competing claim; the back-end DTI test counts revolving balances too |
+| `consumer_debt_per_capita` | student + credit-card debt per capita | Student debt alone understates what a young buyer carries |
 
 **On the decomposition.** To split the payment change since 2021 into price and
 rate components, we hold one input at its 2021 level and let the other move.
 Because the payment is multiplicative in price and non-linear in rate, the two
 effects do not sum to the total; the residual **interaction** term is reported
 explicitly rather than being quietly assigned to one factor.
+
+**On the base year.** The decomposition answers "compared to *when*?", and the
+answer moves the result more than any modeling assumption in this repo. 2021 was
+the all-time low in mortgage rates, so anchoring there maximises the share
+attributed to rates. `decompose_sensitivity()` re-runs the split from 2015, 2019,
+2020 and 2021 and writes `data/processed/decomposition_sensitivity.csv`; the
+dominant factor flips between the pre-pandemic anchors and the 2021 one. We
+publish the sweep instead of the single most quotable number.
 
 ---
 
@@ -176,7 +211,8 @@ python src/run_all.py
 ```
 
 This downloads raw data, builds the cleaned panels, engineers the features,
-writes all six figures, and prints every number quoted in the podcast script.
+writes all seven figures, exports the viewer's JSON, and prints every number
+quoted in the podcast script.
 Add `--refresh` to re-download the raw sources from scratch.
 
 <details>
@@ -187,6 +223,7 @@ python src/ingest.py     # download raw data  -> data/raw/
 python src/clean.py      # tidy panels        -> data/processed/
 python src/features.py   # affordability math -> data/processed/
 python src/eda.py        # figures + findings -> figures/
+python src/export_for_web.py  # viewer JSON     -> web/data/
 ```
 </details>
 
@@ -199,13 +236,14 @@ python src/eda.py        # figures + findings -> figures/
 │   ├── clean.py        # tidy panels; parses the two Census workbooks
 │   ├── features.py     # affordability metrics + payment decomposition
 │   ├── eda.py          # figures and printed findings
+│   ├── export_for_web.py  # processed CSVs -> web/data/*.json
 │   └── run_all.py      # end-to-end pipeline driver
 ├── data/
 │   ├── raw/fred/       # untouched FRED CSVs
 │   ├── raw/partner/    # Census workbooks + partner reference files
 │   └── processed/      # cleaned panels and engineered features
 ├── figures/            # generated PNGs
-├── podcast/            # episode script and show notes
+├── web/                # static viewer: index.html + main.js + exported JSON
 └── requirements.txt
 ```
 
@@ -241,6 +279,18 @@ family *already* owned. An age-only cut is silent on the deepest inequity in
 American housing, and readers should not treat "young people" as a homogeneous
 group.
 
+**The income and ownership cohorts are not the same people.** Income comes from
+CPS H-10 for householders aged **25–34**; the homeownership rate comes from HVS
+Table 19 for householders **under 35**, which includes everyone below 25. The two
+are close enough to narrate together and are not interchangeable; we never divide
+one by the other.
+
+**"Young households out-earn all households" is partly composition.** A 25–34
+household is more likely to hold two earners than the all-ages median, which
+includes single retirees. The comparison is fair as a rebuttal to "young people
+don't earn enough" — that claim is about the same households — but it is not
+evidence that a young *individual* out-earns an older one.
+
 **Survey data has real error bars.** Census CPS and HVS estimates come from
 household samples with sampling error, and CPS income questions changed
 methodology in 2013 and 2017 (Census publishes two estimates for those years; we
@@ -274,6 +324,7 @@ financial advice.
 
 ## Deliverables
 
-- **Podcast episode:** script and show notes in [`podcast/`](podcast/)
+- **Podcast episode:** script and show notes (not yet in this repo)
+- **Static data viewer:** [`web/`](web/) — see [`web/README.md`](web/README.md)
 - **GitHub repository:** this repo
 - **Presentation:** September 29th, in class

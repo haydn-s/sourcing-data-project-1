@@ -77,7 +77,23 @@ SAVINGS_RATE = 0.10          # share of gross income a saver can bank per year
 # Folded in so "payment" means PITI, not just principal and interest.
 TAX_INSURANCE_PCT = 0.0175
 
-# Baseline year for the price-vs-rate counterfactual decomposition.
-DECOMP_BASE_YEAR = 2021      # trough in mortgage rates, pre-tightening
-
 ANALYSIS_START_YEAR = 1984   # first year real median household income exists
+
+# --- Narrative reference years ---------------------------------------------
+# These are storytelling choices, not facts the data hands us, so they live
+# here where a reader can see and change them instead of being scattered
+# through the figure code as literals.
+SHOCK_START_YEAR = 2021      # trough in mortgage rates, pre-tightening
+SHOCK_END_YEAR = 2023        # peak monthly payment
+HIGH_RATE_ERA_YEAR = 1984    # the 13.9%-mortgage comparison point
+HOR_BASE_YEAR = 1994         # first year of Census HVS Table 19
+
+# Baseline year for the price-vs-rate counterfactual decomposition.
+DECOMP_BASE_YEAR = SHOCK_START_YEAR
+
+# Base years for the decomposition robustness check. Anchoring on 2021 -- the
+# all-time low in mortgage rates -- is the choice most favourable to a "rates
+# did it" reading, so we re-run the split from several earlier anchors to show
+# how much of that headline is baseline choice rather than data. Measured from
+# a pre-pandemic normal, prices account for more of the increase than rates do.
+DECOMP_SENSITIVITY_BASE_YEARS = (2015, 2019, 2020, 2021)

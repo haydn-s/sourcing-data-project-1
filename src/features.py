@@ -22,6 +22,7 @@ import pandas as pd
 from config import (
     BACK_END_DTI,
     DECOMP_BASE_YEAR,
+    DECOMP_SENSITIVITY_BASE_YEARS,
     DOWN_PAYMENT_PCT,
     FRONT_END_DTI,
     LOAN_TERM_YEARS,
@@ -111,9 +112,19 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     df["hor_gap_under35"] = annual["hor_all"] - annual["hor_under_35"]
 
     # --- competing debt ---------------------------------------------------
-    # Student debt is a stock in $M; population is in thousands.
+    # Both are stocks carried on FRED in different units, and population is in
+    # thousands: SLOAS is $M, CCLACBW027SBOG is $B.
     df["student_debt_per_capita"] = annual["SLOAS"] * 1e6 / (annual["POPTHM"] * 1e3)
+    df["credit_card_debt_per_capita"] = (
+        annual["CCLACBW027SBOG"] * 1e9 / (annual["POPTHM"] * 1e3)
+    )
+    # Student debt alone understates the claim on a young buyer's income; the
+    # back-end DTI test a lender applies counts revolving balances too.
+    df["consumer_debt_per_capita"] = (
+        df["student_debt_per_capita"] + df["credit_card_debt_per_capita"]
+    )
     df["student_debt_pct_income"] = df["student_debt_per_capita"] / df["income_young"] * 100
+    df["consumer_debt_pct_income"] = df["consumer_debt_per_capita"] / df["income_young"] * 100
     # Room left for a mortgage after other debt service, as a share of income.
     df["dti_headroom"] = BACK_END_DTI - df["payment_to_income"]
 
@@ -157,6 +168,71 @@ def decompose_payment_change(df: pd.DataFrame,
     return out
 
 
+def latest_complete_year(df: pd.DataFrame) -> int:
+    """Most recent year built from a full 12 months of price and rate data."""
+    complete = ~df["is_partial_year"].fillna(False).astype(bool)
+    usable = df.loc[complete, ["median_price", "mortgage_rate"]].dropna()
+    if usable.empty:
+        raise ValueError("no complete year with both price and rate")
+    return int(usable.index.max())
+
+
+def decompose_sensitivity(df: pd.DataFrame,
+                          base_years=DECOMP_SENSITIVITY_BASE_YEARS,
+                          end_year: int | None = None) -> pd.DataFrame:
+    """Re-run the price-vs-rate split from several different base years.
+
+    The headline decomposition anchors on 2021, the all-time low in mortgage
+    rates. That is the anchor most favourable to a "rates did it" reading, and
+    the result is sensitive to it: measured from a pre-pandemic normal, prices
+    account for more of the payment increase than rates do. Reporting the sweep
+    keeps the framing honest about which dial was turned.
+
+    `end_year` defaults to the latest year with a full 12 months of data, so a
+    partial final year never sets the headline.
+    """
+    if end_year is None:
+        end_year = latest_complete_year(df)
+    if end_year not in df.index:
+        raise ValueError(f"end year {end_year} not in panel")
+
+    p_e = df.loc[end_year, "median_price"]
+    r_e = df.loc[end_year, "mortgage_rate"]
+
+    rows = []
+    for base_year in base_years:
+        if base_year not in df.index:
+            raise ValueError(f"base year {base_year} not in panel")
+        p_b = df.loc[base_year, "median_price"]
+        r_b = df.loc[base_year, "mortgage_rate"]
+
+        base_payment = float(piti(p_b, r_b))
+        total = float(piti(p_e, r_e)) - base_payment
+        price_effect = float(piti(p_e, r_b)) - base_payment
+        rate_effect = float(piti(p_b, r_e)) - base_payment
+
+        rows.append({
+            "base_year": base_year,
+            "end_year": end_year,
+            "base_payment": base_payment,
+            "end_payment": base_payment + total,
+            "base_price": p_b,
+            "base_rate": r_b,
+            "total_change": total,
+            "price_effect": price_effect,
+            "rate_effect": rate_effect,
+            "interaction": total - price_effect - rate_effect,
+        })
+
+    out = pd.DataFrame(rows).set_index("base_year")
+    for col in ["price_effect", "rate_effect", "interaction"]:
+        out[f"{col}_share"] = out[col] / out["total_change"] * 100
+    # Which factor the reader would walk away blaming, given this anchor.
+    out["dominant_factor"] = np.where(
+        out["price_effect"] > out["rate_effect"], "price", "rate")
+    return out
+
+
 def main() -> int:
     panel_path = PROCESSED / "annual_panel.csv"
     if not panel_path.exists():
@@ -171,6 +247,14 @@ def main() -> int:
     decomp.to_csv(PROCESSED / "payment_decomposition.csv")
     print(f"payment_decomposition.csv {decomp.shape[0]:>2} years "
           f"(base year {DECOMP_BASE_YEAR})")
+
+    sens = decompose_sensitivity(df)
+    sens.to_csv(PROCESSED / "decomposition_sensitivity.csv")
+    end_year = int(sens["end_year"].iloc[0])
+    flips = sens["dominant_factor"].nunique() > 1
+    print(f"decomposition_sensitivity.csv {sens.shape[0]:>2} base years "
+          f"-> {end_year}"
+          f"{'  (dominant factor FLIPS across base years)' if flips else ''}")
     return 0
 
 
