@@ -9,6 +9,7 @@ import sys
 
 import clean
 import eda
+import export_for_web
 import features
 import ingest
 
@@ -24,6 +25,7 @@ def main() -> int:
         ("CLEAN    building tidy panels", clean.main),
         ("FEATURES engineering affordability metrics", features.main),
         ("EDA      figures and findings", eda.main),
+        ("WEB      exporting JSON for the web viewer", export_for_web.main),
     ]
     for title, fn in steps:
         print(f"\n{'=' * 72}\n{title}\n{'=' * 72}")
