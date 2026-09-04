@@ -112,6 +112,22 @@ def test_beats_are_numbered_consecutively_from_one(page):
 REPO_RE = r"https://github\.com/([\w.-]+/[\w.-]+?)(?:\.git)?(?=[\s\"<)])"
 
 
+def test_header_links_to_the_repository(page):
+    """A reader landing mid-page should be able to reach the repo without
+    scrolling to the bottom."""
+    header = re.search(r"<header[^>]*>.*?</header>", page, re.S)
+    assert header, "no site header found"
+    assert re.search(r'href="https://github\.com/[\w.-]+/[\w.-]+"', header.group(0)), \
+        "the header does not link to the repository"
+
+
+def test_external_nav_links_open_safely(page):
+    """target=_blank without rel=noopener hands the new tab a window.opener
+    reference back to this page."""
+    for tag in re.findall(r"<a [^>]*target=\"_blank\"[^>]*>", page):
+        assert "noopener" in tag, f"external link missing rel=noopener: {tag[:80]}"
+
+
 def test_page_links_to_the_repository(page):
     """The repo is the deliverable this page summarises; a reader who wants to
     reproduce anything needs to be able to reach it."""

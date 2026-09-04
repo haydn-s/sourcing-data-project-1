@@ -63,6 +63,15 @@ a { color: var(--cool); }
 }
 .site-nav a:hover { color: var(--ink); border-bottom-color: var(--cool); }
 
+/* The one nav item that leaves the page. Colour plus the arrow carry that;
+   no rule or button, so the sticky header stays quiet. */
+.site-nav .nav-repo { color: var(--cool); }
+.site-nav .nav-repo::after {
+  content: "\2197";
+  margin-left: 0.28rem;
+  font-size: 0.95em;
+}
+
 /* ---------------------------------------------------------------- banner -- */
 .banner {
   margin: 1rem auto; max-width: 1080px;
@@ -242,6 +251,11 @@ a { color: var(--cool); }
   .hero { padding: 2.5rem 0 2rem; }
   .section { padding: 2.5rem 0; }
   .beat-feature { padding: 1.25rem; }
-  .site-header { padding: 0.7rem 1rem; }
-  .site-nav { gap: 0.9rem; }
+
+  /* Five nav items wrap to two rows on a phone, and a sticky header that tall
+     costs ~17% of the viewport for the whole page. Static here: the nav is
+     still complete at the top, it just stops following the scroll. */
+  .site-header { position: static; padding: 0.7rem 1rem; }
+  .site-nav { gap: 0.55rem 0.85rem; }
+  .site-nav a { font-size: 0.85rem; }
 }
