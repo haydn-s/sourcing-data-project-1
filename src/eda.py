@@ -479,10 +479,15 @@ def fig_rent_vs_own(df):
     ax2.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     _style(ax2, xlim=(first, last + 0.6))
 
-    caveat = ("Asking rent covers vacant units — what a mover faces, not what a "
-              "sitting tenant pays — and those units skew smaller than the median "
-              "home, so read the trends rather than the level. Cash costs only: "
-              "no credit for the equity an owner builds.")
+    base_rate = d.loc[first, "mortgage_rate"]
+    caveat = (f"Asking rent covers vacant units — what a mover faces, not what a "
+              f"sitting tenant pays — and those units skew smaller than the median "
+              f"home, so read the trends rather than the level. Cash costs only: no "
+              f"credit for the equity an owner builds. {first} is where the rent "
+              f"series begins and was a {base_rate:.1f}% mortgage-rate year, so it "
+              f"flatters the ownership line: from any anchor between 1990 and 2019, "
+              f"real ownership cost is higher, by 2% to 42%. The rent trend survives "
+              f"that test over the same window, up 20% to 70%.")
     partial = _partial_note(d)
     _save(fig, "08_rent_vs_own.png",
           f"{caveat} {partial}" if partial else caveat)

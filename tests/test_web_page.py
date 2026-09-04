@@ -107,6 +107,45 @@ def test_beats_are_numbered_consecutively_from_one(page):
     assert nums == list(range(1, len(nums) + 1)), f"beat numbering is {nums}"
 
 
+# ----------------------------------------------------------------------- hero
+
+@pytest.mark.requires_data
+def test_hero_rent_figure_matches_the_data(flat):
+    """The third stat tile carries the one long-run claim that survives a change
+    of base year, so it had better match the series it quotes."""
+    import pandas as pd
+    csv = ROOT / "data" / "processed" / "affordability.csv"
+    if not csv.exists():
+        pytest.skip("run `python src/run_all.py` first")
+    rent = pd.read_csv(csv, index_col="year")["asking_rent_real2024"].dropna()
+    growth = (rent.iloc[-1] / rent.iloc[0] - 1) * 100
+
+    m = re.search(r'stat-value">\+(\d+)%</span>\s*<span class="stat-label">Real cost of renting',
+                  flat)
+    assert m, "the hero no longer states the real rent figure"
+    assert int(m.group(1)) == pytest.approx(growth, abs=1)
+
+
+def test_any_flatness_claim_in_the_hero_names_its_anchor(flat):
+    """"Owning is flat" holds only from the two highest-rate anchors in the
+    series, so it is honest only when the anchor is stated alongside it. This
+    does not forbid the claim — the third tile makes it deliberately — it
+    forbids making it unanchored.
+
+    Rewritten: the first version banned the word "flat" while allowing
+    "sideways", which is the same claim and is the word the tile actually uses.
+    It passed while permitting exactly what it existed to prevent.
+    """
+    tiles = re.findall(r'class="stat-label">([^<]+)<', flat)
+    assert tiles, "no hero stat tiles found"
+    hedges = ("flat", "sideways", "unchanged", "barely moved", "went nowhere",
+              "stayed put", "no higher")
+    for tile in tiles:
+        if any(h in tile.lower() for h in hedges):
+            assert re.search(r"\b(?:19|20)\d{2}\b", tile), \
+                f"ownership-flatness claim with no anchor year: {tile!r}"
+
+
 # -------------------------------------------------------------------- explorer
 
 @pytest.mark.requires_data

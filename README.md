@@ -105,6 +105,17 @@ little or spend carelessly. The data does not support that explanation.
    has to be saved out of. Owning has always cost more per month than renting
    (3.1× in 1988, 1.9× now); the barrier was never the monthly cost, it was
    getting in the door.
+
+   **Base-year caveat, applied to ourselves.** 1988 is where the Census rent
+   series begins, so it is forced rather than chosen — but it was a **10.3%**
+   mortgage-rate year, the 86th percentile of the whole series, and it therefore
+   flatters the ownership line. Measured from any anchor between **1990 and 2019**,
+   real ownership cost is *higher*, by between 2% and 42%. The rent finding
+   survives the same test over the same window: up by 20% to 70%, from every one
+   of those anchors. (We bound the sweep at 2019 because an anchor a year or two
+   from the endpoint measures noise, not a trend — from 2023, both series are
+   slightly *down*.) So read "owning is flat" as "owning costs what it did in the
+   high-rate era," and treat the rent trend as the robust half of this finding.
 8. **The outcome shows up in ownership.** The homeownership rate for households
    under 35 is **36.0%** (2026 YTD) — still below its **37.4%** level in 1994,
    and well off its 2004 peak of 43.1%.
@@ -389,7 +400,10 @@ like with like on size. Read the rent figures as **trends, not levels**: the
 +62% real growth is robust to that mismatch in a way the 1.9× ratio is not. The
 comparison is also cash-only — it credits an owner nothing for equity and charges
 a renter nothing for having none, so it is a measure of the monthly hurdle, not a
-verdict on which is the better deal.
+verdict on which is the better deal. And the 1988 start flatters the ownership
+side, for the reason set out in finding 7: it was a 10.3%-rate year. We ran the
+same base-year sweep on ourselves that figure 07 runs on the decomposition, and
+report the result rather than the single anchor the data handed us.
 
 **Survey data has real error bars.** Census CPS and HVS estimates come from
 household samples with sampling error, and CPS income questions changed

@@ -271,6 +271,43 @@ def test_own_to_rent_ratio_endpoints(readme, data):
     assert (ratio > 1).all(), "the README says owning has *always* cost more per month"
 
 
+def test_base_year_caveat_numbers(readme, data):
+    """The caveat finding 7 applies to itself. These are computed claims: if a
+    revision moves the sweep, the prose has to move with it."""
+    aff = data["aff"]
+    own = aff["monthly_ownership_cost_real2024"]
+    rent = aff["asking_rent_real2024"].dropna()
+    end = int(rent.index.max())
+
+    assert claimed(readme, r"it was a \*\*(\d+\.\d)%\*\*\s*mortgage-rate year") == \
+        pytest.approx(aff.loc[1988, "mortgage_rate"], abs=0.05)
+
+    pct = (own < own.loc[1988]).mean() * 100
+    assert claimed(readme, r"the (\d+)th percentile of the whole series") == \
+        pytest.approx(pct, abs=1)
+
+    # Both sweeps run over the same window the README names: 1990-2019. An
+    # anchor nearer the endpoint measures noise -- from 2023 both series are
+    # slightly down, which is exactly why the claim is bounded.
+    lo, hi = 1990, 2019
+    assert claimed(readme, r"between \*\*(\d{4}) and \d{4}\*\*") == lo
+    assert claimed(readme, r"between \*\*\d{4} and (\d{4})\*\*") == hi
+
+    own_sweep = [(own.loc[end] / own.loc[y] - 1) * 100 for y in range(lo, hi + 1)]
+    assert min(own_sweep) > 0, "ownership cost is not higher from every anchor in the window"
+    assert claimed(readme, r"by between (\d+)% and \d+%") == pytest.approx(
+        min(own_sweep), abs=1)
+    assert claimed(readme, r"by between \d+% and (\d+)%") == pytest.approx(
+        max(own_sweep), abs=1)
+
+    rent_sweep = [(rent.loc[end] / rent.loc[y] - 1) * 100 for y in range(lo, hi + 1)]
+    assert min(rent_sweep) > 0, "rent is not up from every anchor in the window"
+    assert claimed(readme, r"up by (\d+)% to \d+%") == pytest.approx(
+        min(rent_sweep), abs=1)
+    assert claimed(readme, r"up by \d+% to (\d+)%") == pytest.approx(
+        max(rent_sweep), abs=1)
+
+
 # --------------------------------------------------- methodology notes
 
 def test_figure_02_index_endpoints(readme, data):

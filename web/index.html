@@ -39,7 +39,8 @@
         A buyer never actually pays a price — they pay a <em>monthly payment</em>, and
         they have to pass a lender's income test to get it. Both depend on the price
         <strong>and</strong> the interest rate together. Model the payment instead of the
-        sticker price and the recent history of American housing looks very different.
+        sticker price and the recent history of American housing looks very different —
+        and then look past the shock, and it changes again.
       </p>
 
       <div class="stats">
@@ -52,10 +53,18 @@
           <span class="stat-label">Monthly payment on that same home</span>
         </div>
         <div class="stat stat-accent">
-          <span class="stat-value">$79k&nbsp;→&nbsp;$122k</span>
-          <span class="stat-label">Income a lender required to qualify</span>
+          <span class="stat-value">+62%</span>
+          <span class="stat-label">Real cost of renting since 1988, while the monthly cost of owning went sideways</span>
         </div>
       </div>
+
+      <p class="handoff">
+        That is the shock. Underneath it runs a slower one: rent rose 62% in real terms,
+        eating the very income a deposit has to be saved out of — and unlike most long-run
+        claims in this project, that one survives a change of starting year.
+        <a href="#qualifying-gap">Start with the qualifying gap</a>, or jump straight to
+        <a href="#robustness">the figure that stress-tests our own thesis</a>.
+      </p>
 
       <p class="byline">Natalie Zachariah &amp; Haydn Stucker · Duke University, Fall 2026</p>
     </div>
@@ -71,7 +80,7 @@
         and every number is reproduced by running <code>python src/run_all.py</code>.
       </p>
 
-      <article class="beat">
+      <article id="qualifying-gap" class="beat">
         <h3><span class="beat-num">1</span> The qualifying gap</h3>
         <p>
           Start with what a bank demands. Invert the 28% front-end debt-to-income rule and
@@ -85,7 +94,7 @@
         </figure>
       </article>
 
-      <article class="beat">
+      <article id="price-vs-payment" class="beat">
         <h3><span class="beat-num">2</span> Price and payment land in the same place</h3>
         <p>
           It is tempting to show price and payment diverging permanently — but that depends
@@ -100,7 +109,7 @@
         </figure>
       </article>
 
-      <article class="beat">
+      <article id="decomposition" class="beat">
         <h3><span class="beat-num">3</span> What drove the jump</h3>
         <p>
           Hold the price at its 2021 level and let the rate move, then do the reverse. The
@@ -114,7 +123,7 @@
         </figure>
       </article>
 
-      <article class="beat beat-feature">
+      <article id="robustness" class="beat beat-feature">
         <h3><span class="beat-num">4</span> But it depends on when you start — and on inflation</h3>
         <p>
           This is the figure we would most want a sceptical reader to check. 2021 was the
@@ -142,7 +151,7 @@
         </p>
       </article>
 
-      <article class="beat">
+      <article id="affordability-index" class="beat">
         <h3><span class="beat-num">5</span> Could the typical young household ever afford it?</h3>
         <p>
           An index of 100 means the median 25–34 household earns exactly enough to qualify
@@ -156,7 +165,7 @@
         </figure>
       </article>
 
-      <article class="beat">
+      <article id="down-payment" class="beat">
         <h3><span class="beat-num">6</span> The barrier that did get worse</h3>
         <p>
           The payment test flatters the present. The down-payment test does not. Saving 20%
@@ -169,7 +178,7 @@
         </figure>
       </article>
 
-      <article class="beat">
+      <article id="rent-vs-own" class="beat">
         <h3><span class="beat-num">7</span> Renting is what actually got more expensive</h3>
         <p>
           The obvious question about all of the above: compared to <em>what</em>? Our
@@ -189,14 +198,24 @@
                alt="Two panels. The top shows the monthly cost of owning the median home versus renting, in constant 2024 dollars from 1988 to 2026: owning ends about where it started while rent rises 62 percent. The bottom shows rent rising from 14 to 20 percent of income for householders aged 25 to 34.">
         </figure>
         <p class="callout">
-          Read the trends, not the levels. Census reports asking rent on <em>vacant</em>
-          units — the right series for someone about to move, but those units skew smaller
-          than the median owned home. And this is cash cost only: it credits an owner
-          nothing for the equity they build, and charges a renter nothing for having none.
+          <strong>The same test, turned on ourselves.</strong> 1988 is where the Census rent
+          series begins, so we didn't pick it — but it was a 10.3% mortgage-rate year, the
+          86th percentile of the whole series, and it flatters the ownership line. From any
+          anchor between 1990 and 2019, real ownership cost is <em>higher</em>, by 2% to
+          42%. Rent passes the same test over the same window — up 20% to 70% from every
+          one of those anchors. (We stop at 2019: an anchor a year or two from the endpoint
+          measures noise, not a trend.) So "owning is flat" means "owning costs what it did
+          in the high-rate era" — and the rent trend is the robust half.
+        </p>
+        <p class="callout">
+          Read trends, not levels. Census reports asking rent on <em>vacant</em> units — the
+          right series for someone about to move, but those units skew smaller than the
+          median owned home. And this is cash cost only: it credits an owner nothing for the
+          equity they build, and charges a renter nothing for having none.
         </p>
       </article>
 
-      <article class="beat">
+      <article id="outcome" class="beat">
         <h3><span class="beat-num">8</span> The outcome</h3>
         <p>
           All of it lands in one number. The homeownership rate for households under 35 is
