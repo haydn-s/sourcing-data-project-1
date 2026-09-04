@@ -20,24 +20,18 @@ jobs:
         run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run the test suite
-        # The README-claims tests read data/processed/*.csv, which is committed,
-        # so the whole suite runs without touching the network. Deliberately NOT
-        # running src/run_all.py here: that would re-download every FRED series
-        # and Census workbook on each push, which is rude to a free public API
-        # and would make CI fail whenever a source is briefly unavailable.
-        run: pytest
-
-      - name: Check the committed outputs are reproducible
-        # Regenerating from committed CSVs needs no network either.
+        # Everything the suite needs is committed, so it runs without touching
+        # the network. Deliberately NOT running src/run_all.py here: that would
+        # re-download every FRED series and Census workbook on each push, which
+        # is rude to a free public API and would make CI fail whenever a source
+        # is briefly unavailable.
         #
-        # Deliberately excludes figures/: matplotlib PNGs are not byte-identical
-        # across platforms — font rendering differs between this runner and a
-        # contributor's machine — so diffing images here would fail forever
-        # while telling us nothing. The CSV and JSON outputs are plain text and
-        # deterministic for the pinned numpy/pandas, so those are worth pinning.
-        run: |
-          python src/features.py
-          python src/eda.py
-          python src/export_for_web.py
-          git diff --stat --exit-code -- data/processed/ web/data/ \
-            || (echo "::error::Committed data is stale — run python src/run_all.py and commit the result." && exit 1)
+        # This used to be followed by a step that regenerated the CSVs and ran
+        # `git diff --exit-code` on them. That check was wrong and failed
+        # permanently: it demanded bit-identical floating point across machines,
+        # and piti() raises (1+r) to the 360th power, where the last unit in the
+        # last place of pow differs between an arm64 laptop and this x86-64
+        # runner. tests/test_reproducibility.py does the same job numerically,
+        # with a 1e-9 relative tolerance, and has the advantage of running
+        # locally too.
+        run: pytest

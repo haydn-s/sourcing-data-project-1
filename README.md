@@ -302,7 +302,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-No network required — the suite runs against the committed CSVs. Five groups:
+No network required — the suite runs against the committed CSVs. Six groups:
 
 | File | Covers |
 |---|---|
@@ -311,10 +311,26 @@ No network required — the suite runs against the committed CSVs. Five groups:
 | [`tests/test_readme_claims.py`](tests/test_readme_claims.py) | Every number in this README, read back out of the markdown by regex and compared to `data/processed/`. Edit a figure in one place and not the other and this fails, naming the claim |
 | [`tests/test_eda.py`](tests/test_eda.py) | The partial-year footnote helper, plus smoke tests that every figure renders and `print_findings` runs |
 | [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown and every explorer card resolves to an exported series |
+| [`tests/test_reproducibility.py`](tests/test_reproducibility.py) | That the committed CSVs are what the committed code produces. Compared numerically at a 1e-9 relative tolerance, not byte-for-byte: `piti()` raises `(1+r)` to the 360th power, and the last bit of `pow` differs between an arm64 laptop and an x86-64 CI runner |
 
 `pytest -m "not requires_data"` skips the group that needs a pipeline run.
-[CI](.github/workflows/tests.yml) runs the suite on every push and additionally
-checks that the committed CSVs and JSON still regenerate byte-for-byte.
+[CI](.github/workflows/tests.yml) runs the suite on every push.
+
+### Generated tables
+
+`python src/run_all.py` writes eight tables to `data/processed/`. The first four
+are cleaned sources; the last four are the analysis.
+
+| File | Shape | What it holds |
+|---|---|---|
+| `fred_monthly.csv` | 956 × 19 | Every FRED series on a shared monthly index |
+| `homeownership_age.csv` | 130 × 9 | HVS Table 19, quarterly, by age of householder |
+| `asking_rent.csv` | 154 × 5 | HVS Table 11A, quarterly median asking rent |
+| `income_by_age.csv` | 58 × 9 | CPS H-10, median income by age of householder |
+| `annual_panel.csv` | 43 × 36 | The calendar-year panel everything downstream is built on |
+| `affordability.csv` | 43 × 44 | The engineered features — payment, required income, the index, rent vs own |
+| `payment_decomposition.csv` | 43 × 13 | Price/rate/interaction split against the 2021 base year |
+| `decomposition_sensitivity.csv` | 17 × 25 | The same split re-run from all 17 anchors, nominal and real |
 
 ### Repository layout
 
