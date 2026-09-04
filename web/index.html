@@ -456,13 +456,26 @@
         <div>
           <h3>Reproduce it</h3>
           <p>
-            Everything on this page is rebuilt by one command. Raw downloads are resumable,
-            so an interrupted run costs nothing.
+            Every figure and number on this page is rebuilt from primary federal sources by
+            one command. Nothing is hand-edited. Raw downloads are resumable, so an
+            interrupted run costs nothing.
           </p>
-          <pre><code>python src/run_all.py</code></pre>
+          <pre><code>git clone https://github.com/haydn-s/sourcing-data-project-1.git
+cd sourcing-data-project-1
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements.txt
+python src/run_all.py</code></pre>
+          <p>
+            <a class="repo-link"
+               href="https://github.com/haydn-s/sourcing-data-project-1"
+               target="_blank" rel="noopener">View the repository on GitHub</a>
+          </p>
           <p class="cite">
-            Figures land in <code>figures/</code>, cleaned panels in
-            <code>data/processed/</code>, and this page's JSON in <code>web/data/</code>.
+            The README there documents every series and its citation, the engineered
+            features, each modelling assumption, and the limitations in full — including
+            the base-year tests we ran on our own conclusions. Figures land in
+            <code>figures/</code>, cleaned panels in <code>data/processed/</code>, and this
+            page's JSON in <code>web/data/</code>.
           </p>
         </div>
       </div>

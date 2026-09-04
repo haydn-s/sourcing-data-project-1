@@ -107,6 +107,37 @@ def test_beats_are_numbered_consecutively_from_one(page):
     assert nums == list(range(1, len(nums) + 1)), f"beat numbering is {nums}"
 
 
+# ------------------------------------------------------------------ repository
+
+REPO_RE = r"https://github\.com/([\w.-]+/[\w.-]+?)(?:\.git)?(?=[\s\"<)])"
+
+
+def test_page_links_to_the_repository(page):
+    """The repo is the deliverable this page summarises; a reader who wants to
+    reproduce anything needs to be able to reach it."""
+    assert re.search(r'href="https://github\.com/[\w.-]+/[\w.-]+"', page), \
+        "no link to the GitHub repository on the page"
+
+
+def test_page_and_readme_agree_on_the_repository(page):
+    """Both name the repo — in a clone command here and there. If one moves and
+    the other doesn't, a reader follows a dead link."""
+    on_page = set(re.findall(REPO_RE, page))
+    in_readme = set(re.findall(REPO_RE, (ROOT / "README.md").read_text()))
+    # The README also credits the partner's original sourcing repo, which is a
+    # different project and correctly absent from the page.
+    shared = on_page & in_readme
+    assert shared, f"page names {sorted(on_page)}, README names {sorted(in_readme)}"
+    assert len(on_page) == 1, f"page points at more than one repo: {sorted(on_page)}"
+
+
+def test_clone_command_uses_the_same_repo_as_the_link(page):
+    linked = set(re.findall(r'href="https://github\.com/([\w.-]+/[\w.-]+)"', page))
+    cloned = set(re.findall(r"git clone https://github\.com/([\w.-]+/[\w.-]+?)\.git", page))
+    assert cloned, "the reproduce block has no clone command"
+    assert cloned == linked, f"clone command {cloned} does not match the link {linked}"
+
+
 # ----------------------------------------------------------------------- hero
 
 @pytest.mark.requires_data
