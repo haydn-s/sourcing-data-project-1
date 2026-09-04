@@ -395,11 +395,12 @@
         <div>
           <h3>Federal Reserve Economic Data (FRED)</h3>
           <p>
-            Seventeen series retrieved programmatically from
+            Eighteen series retrieved programmatically from
             <code>fred.stlouisfed.org/graph/fredgraph.csv</code>, covering mortgage rates
-            and home prices (Freddie Mac PMMS, Census/HUD, Case-Shiller), the macro backdrop
-            (GDP, CPI-U, unemployment, Treasury yields, population) and household balance
-            sheets (median income, student loans, revolving credit).
+            and home prices (Freddie Mac PMMS, Census/HUD, Case-Shiller), rents (CPI rent of
+            primary residence), the macro backdrop (GDP, CPI-U, unemployment, Treasury
+            yields, population) and household balance sheets (median income, student loans,
+            revolving credit).
           </p>
           <p class="cite">
             Federal Reserve Bank of St.&nbsp;Louis, <em>FRED Economic Data</em>.
@@ -411,13 +412,17 @@
           <h3>U.S. Census Bureau</h3>
           <p>
             <strong>HVS Table 19</strong> — homeownership rates by age of householder,
-            1994–2026, quarterly. <strong>CPS ASEC Table H-10</strong> — households by
-            median income and age of householder, 1967–2024, annual. Both are parsed
-            directly from the published workbooks by <code>src/clean.py</code>.
+            1994–2026, quarterly. <strong>HVS Table 11A</strong> — median asking rent for
+            the U.S. and regions, 1988–2026, quarterly. <strong>CPS ASEC Table H-10</strong>
+            — households by median income and age of householder, 1967–2024, annual. All
+            three are parsed directly from the published workbooks by
+            <code>src/clean.py</code>, which is most of the awkward code in this project:
+            they are display tables built for humans, and Table 11 puts two different tables
+            on one sheet.
           </p>
           <p class="cite">
             U.S. Census Bureau, <em>Housing Vacancies and Homeownership (CPS/HVS)</em>,
-            Table 19; <em>Current Population Survey, Annual Social and Economic
+            Tables 19 and 11A; <em>Current Population Survey, Annual Social and Economic
             Supplement</em>, Table H-10.
           </p>
         </div>

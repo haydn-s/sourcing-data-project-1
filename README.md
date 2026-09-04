@@ -291,7 +291,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-No network required — the suite runs against the committed CSVs. Four groups:
+No network required — the suite runs against the committed CSVs. Five groups:
 
 | File | Covers |
 |---|---|
@@ -299,6 +299,7 @@ No network required — the suite runs against the committed CSVs. Four groups:
 | [`tests/test_clean.py`](tests/test_clean.py) | The three Census workbook parsers, against miniature fixtures that reproduce the real quirks — dot-leader quarter labels, footnote markers glued to years, duplicate years, and the two column-header rows. Also asserts each parser *fails loudly* when its assumed layout is gone |
 | [`tests/test_readme_claims.py`](tests/test_readme_claims.py) | Every number in this README, read back out of the markdown by regex and compared to `data/processed/`. Edit a figure in one place and not the other and this fails, naming the claim |
 | [`tests/test_eda.py`](tests/test_eda.py) | The partial-year footnote helper, plus smoke tests that every figure renders and `print_findings` runs |
+| [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown and every explorer card resolves to an exported series |
 
 `pytest -m "not requires_data"` skips the group that needs a pipeline run.
 [CI](.github/workflows/tests.yml) runs the suite on every push and additionally
