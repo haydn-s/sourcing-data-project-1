@@ -85,15 +85,25 @@ def _dollars(ax, thousands=False):
         ax.yaxis.set_major_formatter(lambda v, _: f"${v:,.0f}")
 
 
-def _partial_note(df):
-    """Footnote text naming any year built from less than 12 months of data."""
+def _partial_note(df, marker=""):
+    """Footnote text naming any year built from less than 12 months of data.
+
+    `marker` is prefixed to each year for figures whose tick labels flag the
+    same years -- figure 03 writes "2026*" -- so the footnote reads "* 2026
+    is..." and a reader can connect the two. Building the marked form here
+    beats having the caller rewrite the returned sentence: string surgery on
+    another function's output only reached the first year, and silently broke
+    whenever this wording changed.
+    """
     if "is_partial_year" not in df:
         return None
     partial = df.index[df["is_partial_year"].fillna(False).astype(bool)]
     if not len(partial):
         return None
-    yrs = ", ".join(str(y) for y in partial)
-    return f"{yrs} is a year-to-date average, not a full year."
+    yrs = ", ".join(f"{marker}{y}" for y in partial)
+    if len(partial) == 1:
+        return f"{yrs} is a year-to-date average, not a full year."
+    return f"{yrs} are year-to-date averages, not full years."
 
 
 def _save(fig, name, note=None):
@@ -229,10 +239,9 @@ def fig_decomposition(decomp):
     ax.set_xticks(list(d.index))
     ax.set_xticklabels([f"{y}*" if p else str(y) for y, p in zip(d.index, partial)])
     ax.legend(frameon=False, loc="upper right", ncol=1)
-    note = _partial_note(d)
-    _save(fig, "03_payment_decomposition.png",
-          note.replace(str(d.index[partial][0]), f"* {d.index[partial][0]}")
-          if note and partial.any() else note)
+    # The tick labels above mark partial years with an asterisk; the footnote
+    # uses the same marker so the two line up.
+    _save(fig, "03_payment_decomposition.png", _partial_note(d, marker="* "))
 
 
 def fig_affordability_index(df):
