@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from config import DOWN_PAYMENT_PCT, TAX_INSURANCE_PCT
+from config import DOWN_PAYMENT_PCT, MAINTENANCE_PCT, TAX_INSURANCE_PCT
 from features import (
     build_affordability,
     decompose_payment_change,
@@ -94,6 +94,7 @@ def panel():
             "SLOAS": [1_300_000.0] * n,
             "CCLACBW027SBOG": [750.0] * n,
             "POPTHM": [320_000.0, 328_000, 330_000, 332_000, 340_000, 342_000, 343_000],
+            "asking_rent": [780.0, 1005, 1104, 1216, 1487, 1490, 1555],
             "months_observed": [12, 12, 12, 12, 12, 12, 8],
             "is_partial_year": [False, False, False, False, False, False, True],
         },
@@ -139,6 +140,53 @@ def test_debt_series_are_scaled_out_of_their_native_fred_units(affordability):
     row = affordability.loc[2024]
     assert 1_000 < row["student_debt_per_capita"] < 20_000
     assert 500 < row["credit_card_debt_per_capita"] < 10_000
+
+
+# ------------------------------------------------------------- rent versus own
+
+def test_ownership_cost_adds_maintenance_on_top_of_piti(affordability):
+    d = affordability
+    expected = d["monthly_piti"] + d["median_price"] * MAINTENANCE_PCT / 12
+    assert d["monthly_ownership_cost"].values == pytest.approx(expected.values)
+
+
+def test_ownership_cost_always_exceeds_piti(affordability):
+    """Maintenance is a cost a renter never sees; it can only add."""
+    assert (affordability["monthly_ownership_cost"]
+            > affordability["monthly_piti"]).all()
+
+
+def test_own_to_rent_ratio_matches_its_components(affordability):
+    d = affordability
+    assert d["own_to_rent_ratio"].values == pytest.approx(
+        (d["monthly_ownership_cost"] / d["asking_rent"]).values)
+    assert d["own_minus_rent"].values == pytest.approx(
+        (d["monthly_ownership_cost"] - d["asking_rent"]).values)
+
+
+def test_rent_burden_is_annualised_against_income(affordability):
+    """rent_to_income compares twelve months of rent to a year of income; using
+    the monthly figure would understate the burden twelvefold."""
+    d = affordability.dropna(subset=["rent_to_income"])
+    assert d["rent_to_income"].values == pytest.approx(
+        (d["asking_rent"] * 12 / d["income_young"]).values)
+    assert (d["rent_to_income"] < 1).all()
+
+
+def test_income_after_rent_is_the_saving_pool(affordability):
+    d = affordability.dropna(subset=["income_after_rent"])
+    assert d["income_after_rent"].values == pytest.approx(
+        (d["income_young"] - d["asking_rent"] * 12).values)
+    assert (d["income_after_rent"] < d["income_young"]).all()
+
+
+def test_rent_has_a_real_series_for_the_long_comparison(affordability):
+    """The headline rent-vs-own claim is about real growth over 38 years, so the
+    deflated column has to exist and agree in the base year."""
+    row = affordability.loc[2024]
+    assert row["asking_rent_real2024"] == pytest.approx(row["asking_rent"])
+    assert row["monthly_ownership_cost_real2024"] == pytest.approx(
+        row["monthly_ownership_cost"])
 
 
 # --------------------------------------------------------------- decomposition

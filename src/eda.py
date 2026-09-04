@@ -33,8 +33,8 @@ COOL = "#2b6cb0"
 MUTED = "#8a94a6"
 GRID = "#dfe3ea"
 
-SOURCE = ("Sources: FRED (Freddie Mac PMMS, Census/HUD, BLS); "
-          "U.S. Census Bureau HVS Table 19 and CPS ASEC Table H-10.")
+SOURCE = ("Sources: FRED (Freddie Mac PMMS, Census/HUD, BLS); U.S. Census Bureau "
+          "HVS Tables 19 and 11A, and CPS ASEC Table H-10.")
 
 plt.rcParams.update({
     "figure.dpi": 150,
@@ -76,6 +76,14 @@ def _label_point(ax, x, y, text, offset, color=INK):
     ha = "center" if offset[0] == 0 else ("right" if offset[0] < 0 else "left")
     ax.annotate(text, xy=(x, y), xytext=offset, textcoords="offset points",
                 fontsize=8.5, color=color, ha=ha)
+
+
+def _change_label(new, old, suffix=""):
+    """Percent change as text, without the "-0%" a rounded -0.4% prints as."""
+    pct = (new / old - 1) * 100
+    if abs(pct) < 0.5:
+        return f"about flat{suffix}"
+    return f"{pct:+.0f}%{suffix}"
 
 
 def _dollars(ax, thousands=False):
@@ -404,6 +412,82 @@ def fig_decomposition_sensitivity(sens):
           f"Deflating moves the crossover eight years earlier.")
 
 
+def fig_rent_vs_own(df):
+    """The alternative the audience is actually choosing from.
+
+    Two panels. The top one is the level and the trend together, in constant
+    dollars: owning the median home has always cost roughly two to three times
+    renting, and over nearly forty years that monthly cost barely moved in real
+    terms -- while rent climbed steadily. The bottom panel is why that matters
+    to this project: rent takes a growing share of the very income a down
+    payment has to be saved out of, which is the mechanism behind figure 06.
+    """
+    d = df.dropna(subset=["asking_rent_real2024", "monthly_ownership_cost_real2024"])
+    rent, own = d["asking_rent_real2024"], d["monthly_ownership_cost_real2024"]
+    first, last = int(d.index.min()), int(d.index.max())
+
+    fig, (ax1, ax2) = plt.subplots(
+        2, 1, figsize=(8.4, 6.8), sharex=True, layout="constrained",
+        gridspec_kw={"height_ratios": [1.5, 1]})
+
+    ax1.axvspan(SHOCK_START_YEAR, last, color=MUTED, alpha=0.10, lw=0)
+    ax1.fill_between(d.index, rent, own, color=ACCENT, alpha=0.07, lw=0)
+    ax1.plot(d.index, own, color=ACCENT, lw=2.2, label="Owning the median home")
+    ax1.plot(d.index, rent, color=COOL, lw=2.2, label="Renting (median asking rent)")
+
+    for series, color in ((own, ACCENT), (rent, COOL)):
+        ax1.annotate(f"${series.loc[last]:,.0f}\n"
+                     f"{_change_label(series.loc[last], series.loc[first], f' since {first}')}",
+                     xy=(last, series.loc[last]), xytext=(6, 0),
+                     textcoords="offset points", color=color, fontsize=8.5,
+                     fontweight="bold", va="center", ha="left",
+                     annotation_clip=False)
+
+    # Name the shaded band; an unexplained grey block is just noise.
+    ax1.annotate(f"{SHOCK_START_YEAR}-{last} rate shock",
+                 xy=((SHOCK_START_YEAR + last) / 2, 0.04),
+                 xycoords=ax1.get_xaxis_transform(), fontsize=8,
+                 color=MUTED, ha="center", va="bottom")
+
+    ax1.set_title("Renting is what got more expensive", loc="left", pad=24)
+    ax1.annotate("Monthly cash cost in constant 2024 dollars. Owning includes "
+                 "taxes, insurance and upkeep.",
+                 xy=(0, 1), xycoords="axes fraction", xytext=(0, 7),
+                 textcoords="offset points", fontsize=9, color=MUTED,
+                 ha="left", va="bottom")
+    ax1.set_ylabel("Per month (2024 dollars)")
+    _dollars(ax1)
+    _style(ax1)
+    ax1.legend(frameon=False, loc="upper left")
+
+    # Panel 2: the mechanism -- rent eating the income a deposit comes out of.
+    b = df.dropna(subset=["rent_to_income"])
+    share = b["rent_to_income"] * 100
+    ax2.axvspan(SHOCK_START_YEAR, last, color=MUTED, alpha=0.10, lw=0)
+    ax2.plot(b.index, share, color=COOL, lw=2.2)
+    b_first, b_last = int(b.index.min()), int(b.index.max())
+    for yr in (b_first, b_last):
+        ax2.plot(yr, share.loc[yr], "o", color=COOL, ms=5.5, zorder=5)
+    ax2.annotate(f"{share.loc[b_first]:.0f}% of income in {b_first}"
+                 f"  →  {share.loc[b_last]:.0f}% by {b_last}",
+                 xy=(0.02, 0.94), xycoords="axes fraction", fontsize=9,
+                 color=INK, ha="left", va="top")
+
+    ax2.set_title("...and it eats the income a down payment is saved out of",
+                  fontsize=10.5, loc="left")
+    ax2.set_ylabel("Rent as % of income,\nhouseholder age 25-34")
+    ax2.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    _style(ax2, xlim=(first, last + 0.6))
+
+    caveat = ("Asking rent covers vacant units — what a mover faces, not what a "
+              "sitting tenant pays — and those units skew smaller than the median "
+              "home, so read the trends rather than the level. Cash costs only: "
+              "no credit for the equity an owner builds.")
+    partial = _partial_note(d)
+    _save(fig, "08_rent_vs_own.png",
+          f"{caveat} {partial}" if partial else caveat)
+
+
 def print_findings(df, decomp, sens):
     def g(year, col):
         return df.loc[year, col]
@@ -481,7 +565,27 @@ def print_findings(df, decomp, sens):
     print(f"   price-to-income     {era}: {g(era,'price_to_income'):.1f}"
           f"  ->  {last_income}: {g(last_income,'price_to_income'):.1f}")
 
-    print(f"\n6. Outcome: homeownership under 35")
+    rent = df.dropna(subset=["asking_rent_real2024"])
+    r_first, r_last = int(rent.index.min()), int(rent.index.max())
+    own_r = df["monthly_ownership_cost_real2024"]
+    print(f"\n6. Why that down payment got further away: rent")
+    print(f"   real monthly cost, {r_first} -> {r_last} (constant "
+          f"{REAL_DOLLAR_BASE_YEAR} dollars):")
+    rent_r = rent["asking_rent_real2024"]
+    print(f"   renting            ${rent_r.loc[r_first]:>7,.0f} -> ${rent_r.loc[r_last]:>7,.0f}"
+          f"  ({_change_label(rent_r.loc[r_last], rent_r.loc[r_first])})")
+    print(f"   owning             ${own_r.loc[r_first]:>7,.0f} -> ${own_r.loc[r_last]:>7,.0f}"
+          f"  ({_change_label(own_r.loc[r_last], own_r.loc[r_first])})")
+    print(f"   Owning the median home costs about what it did in {r_first}, in real")
+    print(f"   terms. Renting is what got dramatically more expensive -- and rent")
+    print(f"   is paid out of the same income a deposit has to be saved from:")
+    rti = df["rent_to_income"].dropna()
+    print(f"   rent as a share of income (25-34)   {int(rti.index.min())}: "
+          f"{rti.iloc[0]*100:.0f}%  ->  {int(rti.index.max())}: {rti.iloc[-1]*100:.0f}%")
+    print(f"   NOTE: cash costs only, no credit for equity; asking rent covers")
+    print(f"   vacant units, which skew smaller than the median home.")
+
+    print(f"\n7. Outcome: homeownership under 35")
     hor = df["hor_under_35"].dropna()
     print(f"   {HOR_BASE_YEAR}: {hor.loc[HOR_BASE_YEAR]:.1f}%   peak {hor.idxmax()}: {hor.max():.1f}%"
           f"   {int(hor.index.max())}: {hor.iloc[-1]:.1f}%")
@@ -505,6 +609,7 @@ def main() -> int:
     fig_homeownership(df)
     fig_down_payment(df)
     fig_decomposition_sensitivity(sens)
+    fig_rent_vs_own(df)
 
     print_findings(df, decomp, sens)
     return 0

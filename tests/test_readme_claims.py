@@ -221,6 +221,56 @@ def test_homeownership_outcome(readme, data):
         hor.loc[2004], abs=0.05)
 
 
+# --------------------------------------------------- finding 7: rent
+
+def test_real_rent_and_ownership_cost_endpoints(readme, data):
+    aff = data["aff"]
+    r = aff.dropna(subset=["asking_rent_real2024"])
+    first, last = int(r.index.min()), int(r.index.max())
+
+    assert claimed(readme, r"about where it was in (\d{4})") == first
+    assert claimed(readme, r"\(\$([\d,]+) → \$[\d,]+\)\. Renting") == pytest.approx(
+        aff.loc[first, "monthly_ownership_cost_real2024"], abs=1)
+    assert claimed(readme, r"\(\$[\d,]+ → \$([\d,]+)\)\. Renting") == pytest.approx(
+        aff.loc[last, "monthly_ownership_cost_real2024"], abs=1)
+    assert claimed(readme, r"rose \*\*\+(\d+)%\*\* over") == pytest.approx(
+        (r.loc[last, "asking_rent_real2024"] / r.loc[first, "asking_rent_real2024"] - 1) * 100,
+        abs=1)
+    assert claimed(readme, r"same span \(\$([\d,]+) →") == pytest.approx(
+        r.loc[first, "asking_rent_real2024"], abs=1)
+    assert claimed(readme, r"same span \(\$[\d,]+ → \$([\d,]+)\)") == pytest.approx(
+        r.loc[last, "asking_rent_real2024"], abs=1)
+
+
+def test_owning_really_is_about_flat_in_real_terms(readme, data):
+    """The claim the finding rests on. If a revision moves it, the wording has
+    to change, not just the numbers."""
+    aff = data["aff"]
+    r = aff.dropna(subset=["asking_rent_real2024"])
+    first, last = int(r.index.min()), int(r.index.max())
+    change = (aff.loc[last, "monthly_ownership_cost_real2024"]
+              / aff.loc[first, "monthly_ownership_cost_real2024"] - 1) * 100
+    assert abs(change) < 5, f"owning moved {change:+.1f}% — 'about where it was' no longer holds"
+
+
+def test_rent_burden_endpoints(readme, data):
+    rti = data["aff"]["rent_to_income"].dropna()
+    assert claimed(readme, r"takes \*\*(\d+)%\*\* of a 25") == pytest.approx(
+        rti.iloc[-1] * 100, abs=1)
+    assert claimed(readme, r"up from \*\*(\d+)%\*\* in \d{4}") == pytest.approx(
+        rti.iloc[0] * 100, abs=1)
+
+
+def test_own_to_rent_ratio_endpoints(readme, data):
+    ratio = data["aff"]["own_to_rent_ratio"].dropna()
+    first = int(data["aff"].dropna(subset=["asking_rent_real2024"]).index.min())
+    assert claimed(readme, r"\((\d\.\d)× in \d{4}") == pytest.approx(
+        ratio.loc[first], abs=0.05)
+    assert claimed(readme, r"× in \d{4}, (\d\.\d)× now\)") == pytest.approx(
+        ratio.iloc[-1], abs=0.05)
+    assert (ratio > 1).all(), "the README says owning has *always* cost more per month"
+
+
 # --------------------------------------------------- methodology notes
 
 def test_figure_02_index_endpoints(readme, data):

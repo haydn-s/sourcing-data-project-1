@@ -18,6 +18,8 @@ import requests
 from config import (
     CENSUS_H10_FILE,
     CENSUS_H10_URL,
+    CENSUS_HVS_TAB11_FILE,
+    CENSUS_HVS_TAB11_URL,
     CENSUS_HVS_TAB19_FILE,
     CENSUS_HVS_TAB19_URL,
     FRED_CSV_URL,
@@ -75,6 +77,7 @@ def fetch_census(force: bool) -> None:
     RAW_PARTNER.mkdir(parents=True, exist_ok=True)
     for label, url, filename in (
         ("HVS Table 19 (homeownership by age)", CENSUS_HVS_TAB19_URL, CENSUS_HVS_TAB19_FILE),
+        ("HVS Table 11A (median asking rent)", CENSUS_HVS_TAB11_URL, CENSUS_HVS_TAB11_FILE),
         ("CPS Table H-10 (income by age)", CENSUS_H10_URL, CENSUS_H10_FILE),
     ):
         dest = RAW_PARTNER / filename

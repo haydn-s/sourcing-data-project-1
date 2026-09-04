@@ -22,6 +22,7 @@ CATEGORY_MAP = {
     "housing_market": [
         "affordability.csv",
         "homeownership_age.csv",
+        "asking_rent.csv",
     ],
     "consumer_debt": [
         "payment_decomposition.csv",

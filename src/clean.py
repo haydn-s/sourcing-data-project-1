@@ -21,6 +21,7 @@ import pandas as pd
 from config import (
     ANALYSIS_START_YEAR,
     CENSUS_H10_FILE,
+    CENSUS_HVS_TAB11_FILE,
     CENSUS_HVS_TAB19_FILE,
     H10_AGE_SECTIONS,
     FRED_SERIES,
@@ -115,6 +116,80 @@ def parse_homeownership_by_age() -> pd.DataFrame:
     return df.sort_values("date").reset_index(drop=True)
 
 
+def parse_asking_rent() -> pd.DataFrame:
+    """Parse Census HVS Table 11A into tidy quarterly median asking rent.
+
+    Three quirks, none of them optional:
+
+    **Two tables share one sheet.** 11A is asking *rent* (~$1,500/month) and
+    11B, further down, is asking *sales price* (~$400,000). They have identical
+    row structure, so a parser that just scans for quarter rows silently
+    averages rents together with house prices. We bound the scan between the two
+    title rows and fail if either is missing.
+
+    **Revised year blocks.** Some years appear twice -- "1989" then "1989r1" --
+    where Census reissued an estimate (the footnotes explain r1/r2/r3 as
+    revisions for year-round units and the 1990 and 2000 censuses). We keep the
+    revised figure. That is the same principle H-10 follows, even though the
+    layouts differ: H-10 lists its revision first, this table lists it second.
+
+    **An "Annual" row per block.** Census's own mean of the four quarters. We
+    skip it and let build_annual_panel do the aggregation, so every series in
+    the project is collapsed to the year by one rule rather than two.
+    """
+    path = RAW_PARTNER / CENSUS_HVS_TAB11_FILE
+    if not path.exists():
+        raise FileNotFoundError(f"{path} missing — run `python src/ingest.py` first")
+    raw = pd.read_excel(path, sheet_name=0, header=None)
+
+    titles = {}
+    for i, cell in raw[0].items():
+        text = str(cell).strip()
+        for key in ("Table 11A", "Table 11B"):
+            if text.startswith(key):
+                titles.setdefault(key, i)
+    if "Table 11A" not in titles:
+        raise ValueError("HVS Table 11A title row not found — layout may have changed")
+    # No 11B means the sheet changed shape; refuse rather than read past the end.
+    if "Table 11B" not in titles:
+        raise ValueError("HVS Table 11B title row not found — cannot bound Table 11A")
+
+    block = raw.loc[titles["Table 11A"]:titles["Table 11B"] - 1]
+
+    records, current_year, current_is_revision = {}, None, False
+    for _, row in block.iterrows():
+        label = str(row[0]).strip()
+
+        # "1989" opens a block; "1989r1" opens a revised block for the same year.
+        year_match = re.match(r"^(\d{4})(?:\.0)?(r\d)?$", label)
+        if year_match:
+            current_year = int(year_match.group(1))
+            current_is_revision = year_match.group(2) is not None
+            continue
+
+        quarter = QUARTER_PREFIX.get(label[:3])
+        if quarter is None or current_year is None:
+            continue                      # "Annual…", blanks, footnotes
+        value = pd.to_numeric(row[1], errors="coerce")
+        if pd.isna(value):
+            continue
+
+        key = (current_year, quarter)
+        # A revision supersedes the original; an original never overwrites one.
+        if key in records and not current_is_revision:
+            continue
+        records[key] = {"year": current_year, "quarter": quarter,
+                        "asking_rent": float(value), "is_revised": current_is_revision}
+
+    df = pd.DataFrame(list(records.values()))
+    if df.empty:
+        raise ValueError("parsed zero rows from HVS Table 11A — layout may have changed")
+    df["date"] = pd.PeriodIndex(
+        [f"{y}Q{q}" for y, q in zip(df["year"], df["quarter"])], freq="Q"
+    ).to_timestamp()
+    return df.sort_values("date").reset_index(drop=True)
+
+
 def parse_income_by_age() -> pd.DataFrame:
     """Parse Census CPS Table H-10 into median income by age of householder.
 
@@ -171,7 +246,8 @@ def parse_income_by_age() -> pd.DataFrame:
 
 
 def build_annual_panel(
-    monthly: pd.DataFrame, hor: pd.DataFrame, inc_age: pd.DataFrame
+    monthly: pd.DataFrame, hor: pd.DataFrame, inc_age: pd.DataFrame,
+    rent: pd.DataFrame
 ) -> pd.DataFrame:
     """Collapse to calendar years and attach homeownership + coverage flags."""
     annual = monthly.resample("YS").mean()
@@ -190,6 +266,7 @@ def build_annual_panel(
     ].mean()
     annual = annual.join(hor_annual, how="left")
     annual = annual.join(inc_age, how="left")
+    annual = annual.join(rent.groupby("year")[["asking_rent"]].mean(), how="left")
 
     return annual.loc[annual.index >= ANALYSIS_START_YEAR]
 
@@ -207,12 +284,18 @@ def main() -> int:
     print(f"homeownership_age.csv  {hor.shape[0]:>5} quarters "
           f"({hor['year'].min()} to {hor['year'].max()})")
 
+    rent = parse_asking_rent()
+    rent.to_csv(PROCESSED / "asking_rent.csv", index=False)
+    print(f"asking_rent.csv        {rent.shape[0]:>5} quarters "
+          f"({rent['year'].min()} to {rent['year'].max()}, "
+          f"{int(rent['is_revised'].sum())} revised)")
+
     inc_age = parse_income_by_age()
     inc_age.to_csv(PROCESSED / "income_by_age.csv")
     print(f"income_by_age.csv      {inc_age.shape[0]:>5} years x {inc_age.shape[1]} columns "
           f"({inc_age.index.min()} to {inc_age.index.max()})")
 
-    annual = build_annual_panel(monthly, hor, inc_age)
+    annual = build_annual_panel(monthly, hor, inc_age, rent)
     annual.to_csv(PROCESSED / "annual_panel.csv")
     partial = annual.index[annual["is_partial_year"]].tolist()
     print(f"annual_panel.csv       {annual.shape[0]:>5} years x {annual.shape[1]} columns "

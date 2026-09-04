@@ -22,6 +22,9 @@ FRED_SERIES = {
     "ASPUS":        ("Average Sales Price of Houses Sold", "quarterly", "usd"),
     "CSUSHPINSA":   ("Case-Shiller U.S. National Home Price Index", "monthly", "index"),
     "RHORUSQ156N":  ("Homeownership Rate (all ages)", "quarterly", "percent"),
+    # Contract rent: what a sitting tenant pays, including renewals. Pairs with
+    # the Census asking-rent series below, which is what a *mover* faces.
+    "CUSR0000SEHA": ("CPI: Rent of Primary Residence, SA", "monthly", "index"),
     "G160651A027NBEA": ("Federal HUD Outlays", "annual", "usd_billions"),
     # Macro backdrop
     "PRIME":        ("Bank Prime Loan Rate", "irregular", "percent"),
@@ -44,6 +47,13 @@ FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
 CENSUS_HVS_TAB19_URL = "https://www.census.gov/housing/hvs/data/histtab19.xlsx"
 CENSUS_HVS_TAB19_FILE = "census_hvs_homeownership_by_age.xlsx"
 
+# --- Census HVS Table 11A: median asking rent ------------------------------
+# The workbook holds TWO tables on one sheet -- 11A (asking rent, ~$1,500/mo) and
+# 11B (asking sales price, ~$400,000) -- so the parser bounds itself by the two
+# title rows. Blending them would be silent and catastrophic.
+CENSUS_HVS_TAB11_URL = "https://www.census.gov/housing/hvs/data/histtab11.xlsx"
+CENSUS_HVS_TAB11_FILE = "census_hvs_asking_rent.xlsx"
+
 # --- Census CPS ASEC Table H-10: median income by age of householder --------
 # The all-ages median income series overstates what a first-time buyer earns.
 # H-10 lets us run the affordability math on the 25-34 cohort directly.
@@ -63,6 +73,12 @@ H10_AGE_SECTIONS = {
 
 # The cohort the story is about: prime first-time-homebuyer age.
 YOUNG_COHORT = "age_25_34"
+
+# --- Rent-vs-buy assumptions -----------------------------------------------
+# Owning carries costs a renter never sees. TAX_INSURANCE_PCT already folds in
+# property tax and insurance; this adds routine upkeep, the standard rule of
+# thumb being ~1% of home value a year. Set to 0.0 to compare on PITI alone.
+MAINTENANCE_PCT = 0.01
 
 # --- Modeling assumptions --------------------------------------------------
 # Conventional 30-year fixed purchase, the benchmark loan a first-time buyer

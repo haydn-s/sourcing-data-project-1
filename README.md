@@ -97,7 +97,15 @@ little or spend carelessly. The data does not support that explanation.
    13.9% mortgage rates, 1984's affordability index was 63.8, below 2024's 75.6.
    The down-payment barrier, however, has grown sharply: saving a 20% down
    payment took **6.7 years** of income in 1984 and **9.3 years** in 2024.
-7. **The outcome shows up in ownership.** The homeownership rate for households
+7. **Rent is what actually got more expensive — and it explains finding 6.**
+   In constant 2024 dollars, the monthly cost of *owning* the median home is
+   about where it was in 1988 ($2,831 → $2,819). Renting rose **+62%** over the
+   same span ($909 → $1,474). Rent now takes **20%** of a 25–34 household's gross
+   income, up from **14%** in 1988 — and that is the same income a down payment
+   has to be saved out of. Owning has always cost more per month than renting
+   (3.1× in 1988, 1.9× now); the barrier was never the monthly cost, it was
+   getting in the door.
+8. **The outcome shows up in ownership.** The homeownership rate for households
    under 35 is **36.0%** (2026 YTD) — still below its **37.4%** level in 1994,
    and well off its 2004 peak of 43.1%.
 
@@ -125,6 +133,7 @@ Retrieved via `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES_ID>`.
 | `MEHOINUSA672N` | Real Median Household Income (2024 dollars) | Annual |
 | `SLOAS` | Student Loans Owned and Securitized | Quarterly |
 | `CCLACBW027SBOG` | Credit Card Loans, All Commercial Banks | Weekly |
+| `CUSR0000SEHA` | CPI: Rent of Primary Residence, SA | Monthly |
 | `CPIAUCSL` | Consumer Price Index for All Urban Consumers | Monthly |
 | `UNRATE` | Unemployment Rate | Monthly |
 | `POPTHM` | Population, Total | Monthly |
@@ -141,10 +150,13 @@ Retrieved via `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES_ID>`.
 | Table | Description | Coverage |
 |---|---|---|
 | HVS Table 19 | Homeownership Rates by Age of Householder | 1994–2026, quarterly |
+| HVS Table 11A | Median Asking Rent, U.S. and regions | 1988–2026, quarterly |
 | CPS ASEC Table H-10 | Age of Householder — Households by Median and Mean Income | 1967–2024, annual |
 
-> U.S. Census Bureau, *Housing Vacancies and Homeownership (CPS/HVS)*, Table 19.
+> U.S. Census Bureau, *Housing Vacancies and Homeownership (CPS/HVS)*, Tables 19
+> and 11A.
 > https://www.census.gov/housing/hvs/data/histtab19.xlsx
+> https://www.census.gov/housing/hvs/data/histtab11.xlsx
 >
 > U.S. Census Bureau, *Current Population Survey, Annual Social and Economic
 > Supplement*, Table H-10.
@@ -179,6 +191,10 @@ the other. Every assumption is a named constant in
 | `real_price_effect` / `real_rate_effect` | The same split with the base-year price deflated to 2024 dollars | Over long horizons the nominal split credits prices for inflation |
 | `hor_gap_under35` | All-ages homeownership rate − under-35 rate | The outcome variable |
 | `student_debt_per_capita` | `SLOAS` ÷ population | Competing claim on the same income |
+| `monthly_ownership_cost` | `monthly_piti` + maintenance at 1% of value per year | The all-in cash cost of owning, comparable to a rent cheque |
+| `own_to_rent_ratio` | `monthly_ownership_cost` ÷ median asking rent | Owning has always cost more per month; the barrier is entry, not carry |
+| `rent_to_income` | 12 × rent ÷ income (age 25–34) | Rent competes directly with saving a deposit |
+| `income_after_rent` | income (25–34) − annual rent | The pool a down payment is actually saved from |
 | `credit_card_debt_per_capita` | `CCLACBW027SBOG` ÷ population | The other competing claim; the back-end DTI test counts revolving balances too |
 | `consumer_debt_per_capita` | student + credit-card debt per capita | Student debt alone understates what a young buyer carries |
 
@@ -252,7 +268,7 @@ python src/run_all.py
 ```
 
 This downloads raw data, builds the cleaned panels, engineers the features,
-writes all seven figures, exports the viewer's JSON, and prints every number
+writes all eight figures, exports the viewer's JSON, and prints every number
 quoted in the podcast script.
 Add `--refresh` to re-download the raw sources from scratch.
 
@@ -275,13 +291,14 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-No network required — the suite runs against the committed CSVs. Three groups:
+No network required — the suite runs against the committed CSVs. Four groups:
 
 | File | Covers |
 |---|---|
 | [`tests/test_features.py`](tests/test_features.py) | The mortgage maths against a hand-computed amortisation value, and the decomposition identity: `price_effect + rate_effect + interaction` must reconstruct `total_change` exactly, or the residual is hiding a bug rather than reporting one |
-| [`tests/test_clean.py`](tests/test_clean.py) | The two Census workbook parsers, against miniature fixtures that reproduce the real quirks — dot-leader quarter labels, footnote markers glued to years, duplicate years, and the two column-header rows. Also asserts each parser *fails loudly* when its assumed layout is gone |
+| [`tests/test_clean.py`](tests/test_clean.py) | The three Census workbook parsers, against miniature fixtures that reproduce the real quirks — dot-leader quarter labels, footnote markers glued to years, duplicate years, and the two column-header rows. Also asserts each parser *fails loudly* when its assumed layout is gone |
 | [`tests/test_readme_claims.py`](tests/test_readme_claims.py) | Every number in this README, read back out of the markdown by regex and compared to `data/processed/`. Edit a figure in one place and not the other and this fails, naming the claim |
+| [`tests/test_eda.py`](tests/test_eda.py) | The partial-year footnote helper, plus smoke tests that every figure renders and `print_findings` runs |
 
 `pytest -m "not requires_data"` skips the group that needs a pipeline run.
 [CI](.github/workflows/tests.yml) runs the suite on every push and additionally
@@ -363,6 +380,16 @@ includes single retirees. The comparison is fair as a rebuttal to "young people
 don't earn enough" — that claim is about the same households — but it is not
 evidence that a young *individual* out-earns an older one.
 
+**The rent comparison is softer than it looks.** Census Table 11A reports
+asking rent on *vacant* units — what a mover faces, which is the right series for
+someone deciding whether to buy, but not what a sitting tenant pays. Units on the
+market also skew smaller than the median owned home, so we are not comparing
+like with like on size. Read the rent figures as **trends, not levels**: the
++62% real growth is robust to that mismatch in a way the 1.9× ratio is not. The
+comparison is also cash-only — it credits an owner nothing for equity and charges
+a renter nothing for having none, so it is a measure of the monthly hurdle, not a
+verdict on which is the better deal.
+
 **Survey data has real error bars.** Census CPS and HVS estimates come from
 household samples with sampling error, and CPS income questions changed
 methodology in 2013 and 2017 (Census publishes two estimates for those years; we
@@ -397,7 +424,7 @@ financial advice.
 ## Deliverables
 
 - **Podcast episode:** script and show notes (not yet in this repo)
-- **Story page:** [`web/`](web/) — the seven figures in narrative order, with an
+- **Story page:** [`web/`](web/) — the eight figures in narrative order, with an
   interactive explorer for all 17 source series underneath. Serve from the repo
   root (`python3 -m http.server 8000`, then `/web/`); see
   [`web/README.md`](web/README.md)

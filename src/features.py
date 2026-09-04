@@ -26,6 +26,7 @@ from config import (
     DOWN_PAYMENT_PCT,
     FRONT_END_DTI,
     LOAN_TERM_YEARS,
+    MAINTENANCE_PCT,
     PROCESSED,
     REAL_DOLLAR_BASE_YEAR,
     SAVINGS_RATE,
@@ -99,12 +100,39 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     df["down_payment"] = df["median_price"] * DOWN_PAYMENT_PCT
     df["years_to_save_down"] = df["down_payment"] / (df["income_young"] * SAVINGS_RATE)
 
+    # --- renting, the alternative the audience is actually choosing from ---
+    # Census HVS Table 11A: median asking rent on *vacant* units, i.e. what a
+    # mover faces. That is the right series for someone deciding whether to buy,
+    # since they are by definition moving -- but it is not what a sitting tenant
+    # pays, and the units on the market skew smaller than the median home. So
+    # the level of this comparison is soft; its trend is what carries weight.
+    df["asking_rent"] = annual["asking_rent"]
+    df["annual_rent"] = df["asking_rent"] * 12
+
+    # Owning costs more than the mortgage. TAX_INSURANCE_PCT already covers tax
+    # and insurance; maintenance is the remaining cost a renter never sees.
+    df["maintenance_monthly"] = df["median_price"] * MAINTENANCE_PCT / 12
+    df["monthly_ownership_cost"] = df["monthly_piti"] + df["maintenance_monthly"]
+
+    # NOTE: cash cost only. It credits the owner nothing for equity, and charges
+    # the renter nothing for having none. Read it as the monthly hurdle, not as
+    # a verdict on which is the better deal.
+    df["own_minus_rent"] = df["monthly_ownership_cost"] - df["asking_rent"]
+    df["own_to_rent_ratio"] = df["monthly_ownership_cost"] / df["asking_rent"]
+    df["rent_to_income"] = df["annual_rent"] / df["income_young"]
+
+    # What is left of a young household's income after rent -- the pool a down
+    # payment has to be saved out of. This is the link between the two halves of
+    # the story: rent is the mechanism that makes the down payment unreachable.
+    df["income_after_rent"] = df["income_young"] - df["annual_rent"]
+
     # --- inflation-adjusted views (2024 dollars) --------------------------
     # NOTE: deflated with CPI-U, whereas Census deflates its own real income
     # series with CPI-U-RS. The two differ slightly; see README limitations.
     cpi_base = df.loc[REAL_DOLLAR_BASE_YEAR, "cpi"]
     for col in ["median_price", "monthly_piti", "required_income", "income_young",
-                "down_payment"]:
+                "down_payment", "asking_rent", "monthly_ownership_cost",
+                "income_after_rent"]:
         df[f"{col}_real2024"] = df[col] * cpi_base / df["cpi"]
 
     # --- homeownership outcomes ------------------------------------------

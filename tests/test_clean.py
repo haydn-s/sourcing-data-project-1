@@ -1,9 +1,10 @@
-"""The two Census workbook parsers.
+"""The three Census workbook parsers.
 
 These are the most fragile code in the project. Both workbooks are *display*
 tables built for humans — dot-leader row labels, footnote markers glued to
 years, header rows carrying no data, and the same year published twice where a
-methodology changed. The parsers read them positionally, so a reflow at Census
+methodology changed. Table 11 goes further and puts two different
+tables on one sheet. The parsers read them positionally, so a reflow at Census
 breaks them silently and every downstream number moves.
 
 The fixtures below rebuild those quirks in miniature rather than depending on
@@ -201,6 +202,93 @@ def test_h10_raises_a_helpful_error_when_the_file_is_missing(tmp_path, monkeypat
     monkeypatch.setattr(clean, "RAW_PARTNER", tmp_path)
     with pytest.raises(FileNotFoundError, match="ingest.py"):
         clean.parse_income_by_age()
+
+
+# ============================ HVS Table 11A: asking rent ====================
+
+def _rent_block(title, rows, price_scale=1):
+    """One HVS Table 11 sub-table: title, units note, header, then year blocks."""
+    n = np.nan
+    out = [[title, n, n], ["(current dollars)", n, n], [n, n, n],
+           ["Year and Quarter", "U.S.", "Northeast"]]
+    for label, quarters in rows:
+        out.append([label, n, n])
+        for q, v in zip(("1st………….....", "2nd……….......", "3rd…………......",
+                         "4th…………....."), quarters):
+            out.append([q, None if v is None else v * price_scale, n])
+        out.append([n, n, n])
+        vals = [v for v in quarters if v is not None]
+        out.append(["Annual………….", sum(vals) / len(vals) * price_scale, n])
+        out.append([n, n, n])
+    return out
+
+
+def _tab11_rows():
+    """Both sub-tables, because they share one sheet and look identical."""
+    rent = _rent_block("Table 11A. Median Asking Rent for the U.S. and Regions", [
+        (1988, (330, 344, 347, 350)),
+        (1989, (345, 358, 355, 370)),        # original estimate
+        ("1989r1", (331, 344, 345, 358)),    # revision, published after it
+        (2026, (1531, 1579, None, None)),    # year still in progress
+    ])
+    price = _rent_block("Table 11B. Median Asking Sales Price for the U.S. and Regions", [
+        (1988, (57000, 63500, 60300, 59100)),
+        (1989, (61600, 64300, 57600, 57400)),
+    ])
+    return rent + price + [["Source: U.S. Census Bureau", np.nan, np.nan],
+                           ["r1 Revised to include year-round units", np.nan, np.nan]]
+
+
+@pytest.fixture
+def rent(tmp_path, monkeypatch):
+    monkeypatch.setattr(clean, "RAW_PARTNER", tmp_path)
+    _write(_tab11_rows(), tmp_path / clean.CENSUS_HVS_TAB11_FILE)
+    return clean.parse_asking_rent()
+
+
+def test_rent_parser_stops_before_the_sales_price_table(rent):
+    """11A and 11B share a sheet with identical row structure. Reading past the
+    boundary would average $350 rents together with $57,000 sale prices."""
+    assert rent["asking_rent"].max() < 5_000
+    assert len(rent) == 10          # 1988 x4, 1989 x4 (revised), 2026 x2
+
+
+def test_rent_parser_prefers_the_revised_estimate(rent):
+    """1989 is published twice; "1989r1" supersedes it."""
+    q1 = rent[(rent.year == 1989) & (rent.quarter == 1)].iloc[0]
+    assert q1["asking_rent"] == 331      # the revision, not the original 345
+    assert bool(q1["is_revised"]) is True
+
+
+def test_rent_parser_keeps_one_row_per_quarter(rent):
+    assert not rent.duplicated(["year", "quarter"]).any()
+
+
+def test_rent_parser_skips_the_census_annual_row(rent):
+    """Census publishes its own annual mean per block; letting it through would
+    add a phantom fifth quarter."""
+    assert set(rent["quarter"].unique()) <= {1, 2, 3, 4}
+    assert (rent.groupby("year").size() <= 4).all()
+
+
+def test_rent_parser_drops_quarters_not_yet_published(rent):
+    assert len(rent[rent.year == 2026]) == 2
+
+
+def test_rent_parser_refuses_a_sheet_it_cannot_bound(tmp_path, monkeypatch):
+    """Without the 11B title there is no end marker, so the parser would run on
+    into whatever follows. It must refuse instead."""
+    monkeypatch.setattr(clean, "RAW_PARTNER", tmp_path)
+    _write(_rent_block("Table 11A. Median Asking Rent", [(1988, (330, 344, 347, 350))]),
+           tmp_path / clean.CENSUS_HVS_TAB11_FILE)
+    with pytest.raises(ValueError, match="Table 11B"):
+        clean.parse_asking_rent()
+
+
+def test_rent_parser_raises_when_the_file_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(clean, "RAW_PARTNER", tmp_path)
+    with pytest.raises(FileNotFoundError, match="ingest.py"):
+        clean.parse_asking_rent()
 
 
 # ============================ FRED CSV loading ==============================
