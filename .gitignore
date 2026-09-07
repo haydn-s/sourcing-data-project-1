@@ -5,5 +5,13 @@ __pycache__/
 venv/
 .ipynb_checkpoints/
 
+# Test artifacts
+# pytest writes its own .gitignore inside this directory, but being explicit
+# here means it stays ignored if that behaviour ever changes.
+.pytest_cache/
+
+# Local tooling
+.claude/
+
 # OS
 .DS_Store

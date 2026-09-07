@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run the test suite
+        # Everything the suite needs is committed, so it runs without touching
+        # the network. Deliberately NOT running src/run_all.py here: that would
+        # re-download every FRED series and Census workbook on each push, which
+        # is rude to a free public API and would make CI fail whenever a source
+        # is briefly unavailable.
+        #
+        # This used to be followed by a step that regenerated the CSVs and ran
+        # `git diff --exit-code` on them. That check was wrong and failed
+        # permanently: it demanded bit-identical floating point across machines,
+        # and piti() raises (1+r) to the 360th power, where the last unit in the
+        # last place of pow differs between an arm64 laptop and this x86-64
+        # runner. tests/test_reproducibility.py does the same job numerically,
+        # with a 1e-9 relative tolerance, and has the advantage of running
+        # locally too.
+        run: pytest

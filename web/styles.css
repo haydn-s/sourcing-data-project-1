@@ -1,0 +1,261 @@
+/* Priced Out — static story page.
+ *
+ * The previous stylesheet drove a full-page scroll-snap deck: every section was
+ * pinned to exactly 100vh with `scroll-snap-type: y mandatory`. That works for a
+ * slide deck and fights a page built from figures and prose — a tall chart plus
+ * two paragraphs simply does not fit in a viewport, and the snap swallowed the
+ * overflow. This is ordinary document flow instead.
+ *
+ * Colours match the matplotlib palette in src/eda.py so the page and the figures
+ * read as one system.
+ */
+
+:root {
+  --ink: #1d2433;
+  --ink-soft: #4a5568;
+  --muted: #8a94a6;
+  --accent: #c1442e;
+  --cool: #2b6cb0;
+  --grid: #dfe3ea;
+  --bg: #ffffff;
+  --bg-alt: #f7f9fc;
+  --card: #ffffff;
+  --measure: 68ch;
+  --radius: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu,
+               "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+a { color: var(--cool); }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ---------------------------------------------------------------- header -- */
+.site-header {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+  padding: 0.85rem 1.5rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--grid);
+}
+.brand { font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; }
+.site-nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.site-nav a {
+  color: var(--ink-soft); text-decoration: none; font-size: 0.9rem;
+  padding-bottom: 2px; border-bottom: 2px solid transparent;
+}
+.site-nav a:hover { color: var(--ink); border-bottom-color: var(--cool); }
+
+/* The one nav item that leaves the page. Colour plus the arrow carry that;
+   no rule or button, so the sticky header stays quiet. */
+.site-nav .nav-repo { color: var(--cool); }
+.site-nav .nav-repo::after {
+  content: "\2197";
+  margin-left: 0.28rem;
+  font-size: 0.95em;
+}
+
+/* ---------------------------------------------------------------- banner -- */
+.banner {
+  margin: 1rem auto; max-width: 1080px;
+  padding: 0.85rem 1.1rem;
+  background: #fff8e6; border-left: 4px solid #e0a416; border-radius: 0 6px 6px 0;
+  font-size: 0.92rem;
+}
+.banner code { background: rgba(0,0,0,0.05); padding: 0.1em 0.35em; border-radius: 3px; }
+
+/* ------------------------------------------------------------------ hero -- */
+.hero { padding: 4.5rem 0 3.5rem; border-bottom: 1px solid var(--grid); }
+.eyebrow {
+  margin: 0 0 1.25rem; font-size: 0.78rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.hero h1 {
+  margin: 0 0 1.25rem; font-size: clamp(1.9rem, 4.2vw, 3rem);
+  line-height: 1.15; letter-spacing: -0.02em; font-weight: 700;
+}
+.lede { max-width: var(--measure); font-size: 1.1rem; color: var(--ink-soft); margin: 0 0 2.5rem; }
+/* Sits between the stat tiles and the byline: the tiles carry the shock, this
+   carries the slower trend underneath it and points into the story. */
+.handoff {
+  max-width: var(--measure);
+  margin: 1.5rem 0 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--cool);
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+.byline { margin: 2.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 1rem; }
+.stat {
+  padding: 1.25rem; border: 1px solid var(--grid); border-radius: var(--radius);
+  background: var(--bg-alt);
+}
+.stat-accent { border-left: 3px solid var(--accent); }
+.stat-value {
+  display: block; font-size: 1.9rem; font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.1; color: var(--ink);
+}
+.stat-accent .stat-value { color: var(--accent); }
+.stat-label { display: block; margin-top: 0.4rem; font-size: 0.86rem; color: var(--ink-soft); }
+
+/* -------------------------------------------------------------- sections -- */
+.section { padding: 4rem 0; }
+.section-alt { background: var(--bg-alt); border-top: 1px solid var(--grid); border-bottom: 1px solid var(--grid); }
+.section-title {
+  margin: 0 0 0.75rem; font-size: clamp(1.4rem, 2.6vw, 2rem);
+  letter-spacing: -0.015em; font-weight: 700;
+}
+.section-intro { max-width: var(--measure); color: var(--ink-soft); margin: 0 0 2.5rem; }
+
+/* ----------------------------------------------------------------- beats -- */
+.beat { padding: 2.5rem 0; border-top: 1px solid var(--grid); }
+.beat:first-of-type { border-top: none; padding-top: 0.5rem; }
+.beat h3 {
+  display: flex; align-items: baseline; gap: 0.75rem;
+  margin: 0 0 0.85rem; font-size: 1.3rem; letter-spacing: -0.01em;
+}
+.beat-num {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.75rem; height: 1.75rem; border-radius: 50%;
+  background: var(--cool); color: #fff;
+  font-size: 0.85rem; font-weight: 700;
+}
+.beat p { max-width: var(--measure); color: var(--ink-soft); }
+.beat figure { margin: 1.75rem 0 0; }
+.beat figure img { border: 1px solid var(--grid); border-radius: var(--radius); background: #fff; }
+
+/* The robustness figure is the one we most want a sceptic to actually read. */
+.beat-feature {
+  background: var(--bg-alt);
+  border: 1px solid var(--grid); border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 2rem; margin: 2.5rem 0;
+}
+.callout {
+  margin: 1.5rem 0 0; padding: 0.9rem 1.1rem;
+  background: #fff; border: 1px solid var(--grid); border-radius: 6px;
+  font-size: 0.92rem; max-width: var(--measure);
+}
+
+/* ------------------------------------------------------------------ tabs -- */
+.tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.75rem; }
+.tab-btn {
+  padding: 0.5rem 0.95rem; border: 1px solid var(--grid); border-radius: 999px;
+  background: #fff; color: var(--ink-soft); font: inherit; font-size: 0.9rem;
+  cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.tab-btn:hover { border-color: var(--cool); color: var(--ink); }
+.tab-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
+.tab-panel[hidden] { display: none; }
+
+/* ----------------------------------------------------------------- cards -- */
+/* min(380px, 100%) rather than a bare 380px: minmax() cannot shrink below its
+   fixed minimum, so on a 375px phone a 380px track overflows the page. */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 1.25rem; }
+.card {
+  background: var(--card); border: 1px solid var(--grid); border-radius: var(--radius);
+  padding: 1.15rem 1.15rem 0.85rem;
+}
+.card h3 { margin: 0 0 0.35rem; font-size: 1rem; letter-spacing: -0.01em; }
+.card-note { margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--ink-soft); line-height: 1.5; }
+.card-id { margin: 0.35rem 0 0; font-size: 0.75rem; color: var(--muted); }
+/* Named .chart, not .plot: Plotly emits an internal <g class="plot">
+   inside each chart's SVG and a '.plot' selector would match both. */
+.chart { min-height: 260px; }
+.chart-empty {
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 1rem;
+  color: var(--muted); font-size: 0.85rem;
+  border: 1px dashed var(--grid); border-radius: 6px;
+}
+
+/* ------------------------------------------------------------ limitations -- */
+.limits-grid { display: grid; gap: 0.75rem; }
+.limit {
+  border: 1px solid var(--grid); border-radius: var(--radius);
+  background: #fff; padding: 0 1.15rem;
+}
+.limit summary {
+  cursor: pointer; padding: 0.95rem 0; list-style: none;
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.limit summary::-webkit-details-marker { display: none; }
+.limit summary::before {
+  content: "+"; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.25rem; height: 1.25rem; border-radius: 4px;
+  background: var(--bg-alt); color: var(--cool); font-weight: 700; font-size: 0.9rem;
+}
+.limit[open] summary::before { content: "\2212"; }
+.limit p { margin: 0 0 1.1rem; max-width: var(--measure); color: var(--ink-soft); font-size: 0.94rem; }
+
+/* --------------------------------------------------------------- sources -- */
+.sources-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 2rem; }
+.sources-grid h3 { margin: 0 0 0.5rem; font-size: 1.02rem; }
+.sources-grid p { margin: 0 0 0.75rem; font-size: 0.94rem; color: var(--ink-soft); }
+.cite { font-size: 0.85rem !important; color: var(--muted) !important; }
+.reading { margin: 0; padding-left: 1.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+
+/* The repository is the actual deliverable this page summarises, so its link
+   gets weight rather than sitting inline in a paragraph. */
+.repo-link {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--cool); border-radius: 6px;
+  color: var(--cool); text-decoration: none;
+  font-size: 0.92rem; font-weight: 500;
+  transition: background 0.12s, color 0.12s;
+}
+.repo-link::after { content: "\2197"; font-size: 1.05em; line-height: 1; }
+.repo-link:hover, .repo-link:focus-visible { background: var(--cool); color: #fff; }
+.reading li { margin-bottom: 0.5rem; }
+.sources-grid pre {
+  margin: 0 0 0.75rem; padding: 0.75rem 0.9rem;
+  background: var(--ink); color: #e7ecf3; border-radius: 6px;
+  overflow-x: auto; font-size: 0.85rem;
+}
+
+/* ---------------------------------------------------------------- footer -- */
+.site-footer { padding: 2.5rem 0; border-top: 1px solid var(--grid); }
+.site-footer p { margin: 0 0 0.4rem; max-width: var(--measure); font-size: 0.9rem; color: var(--ink-soft); }
+
+/* ----------------------------------------------------------------- print -- */
+@media print {
+  .site-header, .tabs, .banner { display: none; }
+  .section, .beat { page-break-inside: avoid; }
+}
+
+/* ---------------------------------------------------------------- narrow -- */
+@media (max-width: 640px) {
+  .wrap { padding: 0 1rem; }
+  .hero { padding: 2.5rem 0 2rem; }
+  .section { padding: 2.5rem 0; }
+  .beat-feature { padding: 1.25rem; }
+
+  /* Five nav items wrap to two rows on a phone, and a sticky header that tall
+     costs ~17% of the viewport for the whole page. Static here: the nav is
+     still complete at the top, it just stops following the scroll. */
+  .site-header { position: static; padding: 0.7rem 1rem; }
+  .site-nav { gap: 0.55rem 0.85rem; }
+  .site-nav a { font-size: 0.85rem; }
+}

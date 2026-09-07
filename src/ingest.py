@@ -18,6 +18,8 @@ import requests
 from config import (
     CENSUS_H10_FILE,
     CENSUS_H10_URL,
+    CENSUS_HVS_TAB11_FILE,
+    CENSUS_HVS_TAB11_URL,
     CENSUS_HVS_TAB19_FILE,
     CENSUS_HVS_TAB19_URL,
     FRED_CSV_URL,
@@ -41,7 +43,8 @@ BACKOFF_SCHEDULE = (5, 15, 30)
 
 def _get(url: str) -> bytes:
     last = None
-    for attempt, backoff in enumerate((*BACKOFF_SCHEDULE, None)):
+    # The trailing None is the final attempt: try, then give up rather than sleep.
+    for backoff in (*BACKOFF_SCHEDULE, None):
         try:
             # Connection: close — reused sockets are what FRED tends to drop.
             r = requests.get(url, timeout=TIMEOUT, headers=HEADERS)
@@ -74,6 +77,7 @@ def fetch_census(force: bool) -> None:
     RAW_PARTNER.mkdir(parents=True, exist_ok=True)
     for label, url, filename in (
         ("HVS Table 19 (homeownership by age)", CENSUS_HVS_TAB19_URL, CENSUS_HVS_TAB19_FILE),
+        ("HVS Table 11A (median asking rent)", CENSUS_HVS_TAB11_URL, CENSUS_HVS_TAB11_FILE),
         ("CPS Table H-10 (income by age)", CENSUS_H10_URL, CENSUS_H10_FILE),
     ):
         dest = RAW_PARTNER / filename

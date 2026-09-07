@@ -1,0 +1,49 @@
+This repository is licensed in three parts, because it contains three
+different kinds of thing.
+
+  1. SOFTWARE — everything under src/, tests/, and web/ (index.html, main.js,
+     styles.css), plus the configuration files at the repository root — is
+     licensed under the MIT License, reproduced in full below.
+
+  2. CONTENT — the written analysis in README.md and web/index.html, and the
+     generated figures in figures/ — is licensed under the Creative Commons
+     Attribution 4.0 International License (CC BY-4.0). You may share and adapt
+     it, including commercially, provided you give appropriate credit, link to
+     the license, and indicate whether changes were made.
+
+     Full text: https://creativecommons.org/licenses/by/4.0/legalcode
+     Summary:   https://creativecommons.org/licenses/by/4.0/
+
+  3. DATA — everything under data/ originates with the U.S. federal government
+     (the Federal Reserve Bank of St. Louis and the U.S. Census Bureau). Works
+     of the United States government are not subject to copyright protection
+     within the United States (17 U.S.C. § 105) and are reproduced here
+     unmodified in data/raw/. We claim no rights over them. The derived tables
+     in data/processed/ are outputs of the MIT-licensed code in src/.
+
+     Please cite the original sources rather than this repository when using
+     the underlying series; they are listed in full in README.md.
+
+--------------------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2026 Natalie Zachariah and Haydn Stucker
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -22,10 +22,13 @@ import pandas as pd
 from config import (
     BACK_END_DTI,
     DECOMP_BASE_YEAR,
+    DECOMP_SENSITIVITY_BASE_YEARS,
     DOWN_PAYMENT_PCT,
     FRONT_END_DTI,
     LOAN_TERM_YEARS,
+    MAINTENANCE_PCT,
     PROCESSED,
+    REAL_DOLLAR_BASE_YEAR,
     SAVINGS_RATE,
     TAX_INSURANCE_PCT,
     YOUNG_COHORT,
@@ -97,12 +100,39 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     df["down_payment"] = df["median_price"] * DOWN_PAYMENT_PCT
     df["years_to_save_down"] = df["down_payment"] / (df["income_young"] * SAVINGS_RATE)
 
+    # --- renting, the alternative the audience is actually choosing from ---
+    # Census HVS Table 11A: median asking rent on *vacant* units, i.e. what a
+    # mover faces. That is the right series for someone deciding whether to buy,
+    # since they are by definition moving -- but it is not what a sitting tenant
+    # pays, and the units on the market skew smaller than the median home. So
+    # the level of this comparison is soft; its trend is what carries weight.
+    df["asking_rent"] = annual["asking_rent"]
+    df["annual_rent"] = df["asking_rent"] * 12
+
+    # Owning costs more than the mortgage. TAX_INSURANCE_PCT already covers tax
+    # and insurance; maintenance is the remaining cost a renter never sees.
+    df["maintenance_monthly"] = df["median_price"] * MAINTENANCE_PCT / 12
+    df["monthly_ownership_cost"] = df["monthly_piti"] + df["maintenance_monthly"]
+
+    # NOTE: cash cost only. It credits the owner nothing for equity, and charges
+    # the renter nothing for having none. Read it as the monthly hurdle, not as
+    # a verdict on which is the better deal.
+    df["own_minus_rent"] = df["monthly_ownership_cost"] - df["asking_rent"]
+    df["own_to_rent_ratio"] = df["monthly_ownership_cost"] / df["asking_rent"]
+    df["rent_to_income"] = df["annual_rent"] / df["income_young"]
+
+    # What is left of a young household's income after rent -- the pool a down
+    # payment has to be saved out of. This is the link between the two halves of
+    # the story: rent is the mechanism that makes the down payment unreachable.
+    df["income_after_rent"] = df["income_young"] - df["annual_rent"]
+
     # --- inflation-adjusted views (2024 dollars) --------------------------
     # NOTE: deflated with CPI-U, whereas Census deflates its own real income
     # series with CPI-U-RS. The two differ slightly; see README limitations.
-    cpi_base = df.loc[2024, "cpi"]
+    cpi_base = df.loc[REAL_DOLLAR_BASE_YEAR, "cpi"]
     for col in ["median_price", "monthly_piti", "required_income", "income_young",
-                "down_payment"]:
+                "down_payment", "asking_rent", "monthly_ownership_cost",
+                "income_after_rent"]:
         df[f"{col}_real2024"] = df[col] * cpi_base / df["cpi"]
 
     # --- homeownership outcomes ------------------------------------------
@@ -111,9 +141,19 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     df["hor_gap_under35"] = annual["hor_all"] - annual["hor_under_35"]
 
     # --- competing debt ---------------------------------------------------
-    # Student debt is a stock in $M; population is in thousands.
+    # Both are stocks carried on FRED in different units, and population is in
+    # thousands: SLOAS is $M, CCLACBW027SBOG is $B.
     df["student_debt_per_capita"] = annual["SLOAS"] * 1e6 / (annual["POPTHM"] * 1e3)
+    df["credit_card_debt_per_capita"] = (
+        annual["CCLACBW027SBOG"] * 1e9 / (annual["POPTHM"] * 1e3)
+    )
+    # Student debt alone understates the claim on a young buyer's income; the
+    # back-end DTI test a lender applies counts revolving balances too.
+    df["consumer_debt_per_capita"] = (
+        df["student_debt_per_capita"] + df["credit_card_debt_per_capita"]
+    )
     df["student_debt_pct_income"] = df["student_debt_per_capita"] / df["income_young"] * 100
+    df["consumer_debt_pct_income"] = df["consumer_debt_per_capita"] / df["income_young"] * 100
     # Room left for a mortgage after other debt service, as a share of income.
     df["dti_headroom"] = BACK_END_DTI - df["payment_to_income"]
 
@@ -157,6 +197,101 @@ def decompose_payment_change(df: pd.DataFrame,
     return out
 
 
+def latest_complete_year(df: pd.DataFrame) -> int:
+    """Most recent year built from a full 12 months of price and rate data."""
+    complete = ~df["is_partial_year"].fillna(False).astype(bool)
+    usable = df.loc[complete, ["median_price", "mortgage_rate"]].dropna()
+    if usable.empty:
+        raise ValueError("no complete year with both price and rate")
+    return int(usable.index.max())
+
+
+def _split(price_b, rate_b, price_e, rate_e):
+    """Two-factor counterfactual split of one payment change.
+
+    Returns (base_payment, total, price_effect, rate_effect, interaction).
+    Holding one input at its base level isolates the other's contribution;
+    because piti is linear in price but non-linear in rate, the two do not sum
+    to the total and the residual is returned rather than absorbed.
+    """
+    base = float(piti(price_b, rate_b))
+    total = float(piti(price_e, rate_e)) - base
+    price_effect = float(piti(price_e, rate_b)) - base
+    rate_effect = float(piti(price_b, rate_e)) - base
+    return base, total, price_effect, rate_effect, total - price_effect - rate_effect
+
+
+def decompose_sensitivity(df: pd.DataFrame,
+                          base_years=DECOMP_SENSITIVITY_BASE_YEARS,
+                          end_year: int | None = None) -> pd.DataFrame:
+    """Re-run the price-vs-rate split from every anchor across a 20-year window.
+
+    Two things move the answer, and this reports both.
+
+    **The anchor.** The headline decomposition starts at 2021, the all-time low
+    in mortgage rates -- the anchor most favourable to a "rates did it" reading.
+
+    **The denomination.** Over two years nominal and real agree. Over twenty
+    they do not: CPI rose ~60% from 2006 to 2025 against ~70% nominal growth in
+    the median price, so a nominal split hands prices the credit for inflation.
+    If prices, incomes and rents all doubled with inflation and rates held flat,
+    the nominal split would report "prices did 100% of it" while affordability
+    was untouched. The real columns deflate the base-year price to
+    REAL_DOLLAR_BASE_YEAR dollars so the price effect is real appreciation only.
+
+    Real terms is the correct lens for a long horizon; the nominal columns are
+    kept so the divergence itself can be shown rather than quietly resolved.
+
+    `end_year` defaults to the latest year with a full 12 months of data, so a
+    partial final year never sets the headline.
+    """
+    if end_year is None:
+        end_year = latest_complete_year(df)
+    if end_year not in df.index:
+        raise ValueError(f"end year {end_year} not in panel")
+
+    p_e, r_e = df.loc[end_year, "median_price"], df.loc[end_year, "mortgage_rate"]
+    cpi_base = df.loc[REAL_DOLLAR_BASE_YEAR, "cpi"]
+    p_e_real = p_e * cpi_base / df.loc[end_year, "cpi"]
+
+    rows = []
+    for base_year in base_years:
+        if base_year not in df.index:
+            raise ValueError(f"base year {base_year} not in panel")
+        p_b, r_b = df.loc[base_year, "median_price"], df.loc[base_year, "mortgage_rate"]
+        p_b_real = p_b * cpi_base / df.loc[base_year, "cpi"]
+
+        base, total, price_eff, rate_eff, inter = _split(p_b, r_b, p_e, r_e)
+        rbase, rtotal, rprice, rrate, rinter = _split(p_b_real, r_b, p_e_real, r_e)
+
+        rows.append({
+            "base_year": base_year, "end_year": end_year,
+            "base_price": p_b, "base_rate": r_b,
+            "base_payment": base, "total_change": total,
+            "price_effect": price_eff, "rate_effect": rate_eff,
+            "interaction": inter,
+            "base_price_real": p_b_real, "base_payment_real": rbase,
+            "real_total_change": rtotal, "real_price_effect": rprice,
+            "real_rate_effect": rrate, "real_interaction": rinter,
+        })
+
+    out = pd.DataFrame(rows).set_index("base_year")
+
+    for prefix in ("", "real_"):
+        total = out[f"{prefix}total_change"]
+        for part in ("price_effect", "rate_effect", "interaction"):
+            out[f"{prefix}{part}_share"] = out[f"{prefix}{part}"] / total * 100
+        price, rate = out[f"{prefix}price_effect"], out[f"{prefix}rate_effect"]
+        out[f"{prefix}dominant_factor"] = np.where(price > rate, "price", "rate")
+        # A share is only readable while both effects push the same way. Once
+        # one turns negative the pair still sums to the total but the
+        # percentages run past 100 and below zero, so flag rather than print.
+        out[f"{prefix}shares_readable"] = (
+            (np.sign(price) == np.sign(rate)) & (total != 0))
+
+    return out
+
+
 def main() -> int:
     panel_path = PROCESSED / "annual_panel.csv"
     if not panel_path.exists():
@@ -171,6 +306,17 @@ def main() -> int:
     decomp.to_csv(PROCESSED / "payment_decomposition.csv")
     print(f"payment_decomposition.csv {decomp.shape[0]:>2} years "
           f"(base year {DECOMP_BASE_YEAR})")
+
+    sens = decompose_sensitivity(df)
+    sens.to_csv(PROCESSED / "decomposition_sensitivity.csv")
+    end_year = int(sens["end_year"].iloc[0])
+    print(f"decomposition_sensitivity.csv {sens.shape[0]:>2} base years "
+          f"({sens.index.min()}-{sens.index.max()}) -> {end_year}")
+    for label, col in (("nominal", "dominant_factor"), ("real", "real_dominant_factor")):
+        blames = sens[col]
+        flip = blames.ne(blames.shift()).cumsum().max() > 1
+        print(f"  {label:<8} blames prices in {(blames == 'price').sum():>2}/{len(blames)} "
+              f"anchors{'  (dominant factor FLIPS)' if flip else ''}")
     return 0
 
 
