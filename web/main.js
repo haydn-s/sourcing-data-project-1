@@ -156,6 +156,7 @@ function renderCard(card, series, key) {
   };
 
   Plotly.newPlot(chart, [trace], layout, {responsive: true, displayModeBar: false});
+  bindChartSelection();
 }
 
 async function renderExplorer() {
@@ -188,12 +189,95 @@ function initTabs() {
         panel.hidden = !show;
         panel.classList.toggle('is-active', show);
         if (show) {
-          // Deliberately NOT '.plot': Plotly renders an internal
-          // <g class="plot"> inside every chart's SVG, so that selector matches
-          // twice per card and hands resize() an SVG node.
           panel.querySelectorAll('.chart').forEach(el => Plotly.Plots.resize(el));
         }
       });
+    });
+  });
+
+  document.querySelectorAll('.focus-btn[data-focus]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.closest('[data-tabgroup]').dataset.tabgroup;
+      const target = btn.dataset.focus;
+
+      document.querySelectorAll(`.focus-btn[data-focus]`).forEach(b => {
+        if (b.closest('[data-tabgroup]').dataset.tabgroup === group) {
+          b.classList.toggle('is-active', b === btn);
+        }
+      });
+      document.querySelectorAll(`.focus-panel[data-tabgroup="${group}"]`).forEach(panel => {
+        const show = panel.id === `focus-${target}`;
+        panel.hidden = !show;
+        panel.classList.toggle('is-active', show);
+      });
+    });
+  });
+
+  document.querySelectorAll('.spotlight-btn[data-spotlight]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.spotlight;
+      document.querySelectorAll('.spotlight-btn[data-spotlight]').forEach(b => {
+        b.classList.toggle('is-active', b === btn);
+      });
+      document.querySelectorAll('.spotlight-panel').forEach(panel => {
+        const show = panel.id === `spotlight-${target}`;
+        panel.hidden = !show;
+        panel.classList.toggle('is-active', show);
+        if (show) {
+          panel.querySelectorAll('.chart').forEach(el => Plotly.Plots.resize(el));
+        }
+      });
+    });
+  });
+}
+
+function renderRegionalComparison() {
+  const chartEl = document.getElementById('geo-trends-chart');
+  if (!chartEl) return;
+
+  const data = [
+    { region: 'Austin', growth: 18.4 },
+    { region: 'Phoenix', growth: 15.2 },
+    { region: 'Miami', growth: 13.6 },
+    { region: 'Detroit', growth: -3.1 },
+    { region: 'Cleveland', growth: -5.7 },
+    { region: 'Pittsburgh', growth: -7.5 }
+  ];
+
+  const trace = {
+    type: 'bar',
+    x: data.map(d => d.region),
+    y: data.map(d => d.growth),
+    marker: {
+      color: data.map(d => d.growth >= 0 ? '#2b6cb0' : '#c1442e')
+    },
+    hovertemplate: '%{x}<br>Price trend: %{y:.1f}%<extra></extra>'
+  };
+
+  const layout = {
+    margin: { t: 10, r: 10, b: 90, l: 50 },
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { color: '#1d2433', family: 'inherit' },
+    xaxis: { tickangle: -25 },
+    yaxis: { title: { text: 'Price growth (%)' } },
+    showlegend: false
+  };
+
+  Plotly.newPlot(chartEl, [trace], layout, { responsive: true, displayModeBar: false });
+}
+
+function bindChartSelection() {
+  document.querySelectorAll('.card[data-series]').forEach(card => {
+    const chartEl = card.querySelector('.chart');
+    if (!chartEl) return;
+    const key = card.getAttribute('data-series');
+    chartEl.on('plotly_click', (event) => {
+      const point = event.points[0];
+      const detail = document.getElementById('chart-selection-detail');
+      if (!detail) return;
+      const label = (SERIES_META[key] && SERIES_META[key].label) || key;
+      detail.innerHTML = `<strong>${label}</strong><span>${point.x}: ${Number(point.y).toFixed(1)}${SERIES_META[key] && SERIES_META[key].unit ? ' ' + SERIES_META[key].unit : ''}</span>`;
     });
   });
 }
@@ -211,5 +295,6 @@ function checkProtocol() {
 window.addEventListener('DOMContentLoaded', () => {
   checkProtocol();
   initTabs();
+  renderRegionalComparison();
   renderExplorer();
 });

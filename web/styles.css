@@ -158,15 +158,64 @@ a { color: var(--cool); }
 }
 
 /* ------------------------------------------------------------------ tabs -- */
-.tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.75rem; }
+.story-selector,
+.spotlight-controls,
+.tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+.focus-btn,
+.spotlight-btn,
 .tab-btn {
-  padding: 0.5rem 0.95rem; border: 1px solid var(--grid); border-radius: 999px;
+  padding: 0.6rem 0.95rem; border: 1px solid var(--grid); border-radius: 999px;
   background: #fff; color: var(--ink-soft); font: inherit; font-size: 0.9rem;
-  cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s;
+  cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s;
 }
-.tab-btn:hover { border-color: var(--cool); color: var(--ink); }
+.focus-btn:hover,
+.spotlight-btn:hover,
+.tab-btn:hover { border-color: var(--cool); color: var(--ink); transform: translateY(-1px); }
+.focus-btn.is-active,
+.spotlight-btn.is-active,
 .tab-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
+.focus-panel[hidden],
+.spotlight-panel[hidden],
 .tab-panel[hidden] { display: none; }
+
+.focus-panel,
+.spotlight-panel {
+  margin-bottom: 1.5rem; padding: 1.25rem 1.35rem; border: 1px solid var(--grid); border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(43,108,176,0.05), rgba(193,68,46,0.03));
+}
+.focus-copy h3 { margin: 0 0 0.5rem; font-size: 1.15rem; letter-spacing: -0.01em; }
+.focus-copy p { margin: 0; color: var(--ink-soft); max-width: 72ch; }
+
+.chart-selection-detail {
+  margin-bottom: 1rem; padding: 0.8rem 1rem; border: 1px solid rgba(43,108,176,0.2);
+  border-left: 4px solid var(--cool); border-radius: 8px; background: rgba(43,108,176,0.04);
+  color: var(--ink-soft); display: flex; flex-direction: column; gap: 0.2rem;
+}
+
+.spotlight-visual { margin-top: 0; }
+.insight-card {
+  background: #fff; border: 1px solid var(--grid); border-radius: var(--radius); padding: 1.25rem;
+}
+.insight-card h3 { margin: 0 0 0.4rem; }
+.insight-card p,
+.insight-card li { color: var(--ink-soft); }
+.insight-card ul { margin: 0.75rem 0 0; padding-left: 1.2rem; }
+.geo-trends-chart { margin-top: 1rem; min-height: 320px; }
+
+.takeaway-section {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+.takeaway-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 1rem;
+}
+.takeaway-card {
+  background: #fff; border: 1px solid var(--grid); border-radius: var(--radius); padding: 1.2rem 1.15rem;
+  box-shadow: 0 8px 18px rgba(29, 36, 51, 0.03);
+}
+.takeaway-card h3 {
+  margin: 0 0 0.5rem; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--ink);
+}
+.takeaway-card p { margin: 0; color: var(--ink-soft); }
 
 /* ----------------------------------------------------------------- cards -- */
 /* min(380px, 100%) rather than a bare 380px: minmax() cannot shrink below its
