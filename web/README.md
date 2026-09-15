@@ -3,9 +3,9 @@
 A single static page that leads with the analysis and keeps an interactive
 explorer underneath it:
 
-- **The story** — the seven figures from `figures/`, in narrative order, each
-  with the reasoning behind it. These are plain `<img>` tags, so they render
-  with no server and no JavaScript.
+- **The story** — the six selected figures from `figures/`, in narrative order, each
+  with the reasoning behind it. They are interactive Plotly charts backed by
+  the generated JSON, with the original PNGs kept as no-JavaScript fallbacks.
 - **Explore the source data** — every series the project downloads, one chart
   per series, drawn with Plotly from the JSON in `web/data/`. This part needs
   `fetch()`, which browsers block on `file://` URLs.
@@ -21,11 +21,11 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000/web/>.
 
-The root matters: the story figures are referenced as `../figures/*.png` so that
-the repository keeps exactly one copy of each image. Serving `web/` as the root
-puts those files outside the document root and every figure 404s. Opening
-`index.html` straight off disk shows the figures but leaves the explorer empty,
-and the page says so in a banner rather than failing silently.
+The root matters: the fallback story figures are referenced as
+`../figures/*.png` so that the repository keeps exactly one copy of each image.
+Serving `web/` as the root puts those files outside the document root and every
+fallback figure 404s. A local server is recommended so the generated JSON can
+be fetched consistently by the interactive charts.
 
 ## Regenerating the data
 

@@ -168,7 +168,6 @@ function renderCard(card, series, key) {
   };
 
   Plotly.newPlot(chart, [trace], layout, {responsive: true, displayModeBar: false});
-  bindChartSelection();
 }
 
 async function renderExplorer() {
@@ -178,6 +177,123 @@ async function renderExplorer() {
   cards.forEach(card => {
     const key = card.getAttribute('data-series');
     renderCard(card, seriesMap[key], key);
+  });
+  bindChartSelection();
+}
+
+function findBundle(bundles, name) {
+  return bundles.find(bundle => bundle.name === name)?.records || [];
+}
+
+function validRows(rows, fields) {
+  return rows.filter(row => fields.every(field => Number.isFinite(Number(row[field]))));
+}
+
+function storyTrace(rows, field, name, color, formatter) {
+  return {
+    x: rows.map(row => row.date ?? row.year ?? row.base_year),
+    y: rows.map(row => Number(row[field])),
+    name,
+    mode: 'lines+markers',
+    line: {color, width: 2},
+    marker: {size: 5},
+    hovertemplate: `%{x}<br><b>${formatter('%{y}')}</b><extra>${name}</extra>`
+  };
+}
+
+function storyLayout(yTitle, showLegend = true) {
+  return {
+    margin: {t: 12, r: 18, b: 42, l: 68},
+    height: 390,
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: {color: INK, size: 11, family: 'inherit'},
+    showlegend: showLegend,
+    legend: {orientation: 'h', y: 1.12, x: 0},
+    xaxis: {title: {text: 'Year'}, gridcolor: GRID, zeroline: false, linecolor: GRID},
+    yaxis: {title: {text: yTitle}, gridcolor: GRID, zeroline: false, linecolor: GRID},
+    hoverlabel: {bgcolor: '#ffffff', bordercolor: GRID, font: {color: INK}}
+  };
+}
+
+function drawStoryChart(element, traces, layout) {
+  if (!traces.length) {
+    element.textContent = 'This figure needs the generated web data to load.';
+    return;
+  }
+  Plotly.newPlot(element, traces, layout, {responsive: true, displayModeBar: false});
+}
+
+async function renderStoryFigures() {
+  const charts = document.querySelectorAll('.story-chart[data-story-chart]');
+  if (!charts.length) return;
+
+  const [housing, debt, ownership] = await Promise.all([
+    fetchJson('data/housing_market.json'),
+    fetchJson('data/consumer_debt.json'),
+    fetchJson('data/housing_market.json')
+  ]);
+  const affordability = findBundle(housing, 'affordability.csv');
+  const decomposition = findBundle(debt, 'payment_decomposition.csv');
+  const sensitivity = findBundle(debt, 'decomposition_sensitivity.csv');
+  const age = findBundle(ownership, 'homeownership_age.csv');
+  const money = () => '$%{y:,.0f}';
+  const percent = () => '%{y:.1f}%';
+
+  charts.forEach(element => {
+    const figure = element.dataset.storyChart;
+    if (figure === '1') {
+      const rows = validRows(affordability, ['year', 'income_young', 'income_all_ages', 'required_income']);
+      const layout = storyLayout('Annual income (US dollars)');
+      layout.title = {
+        text: 'Salary vs. income needed to qualify',
+        x: 0.5,
+        xanchor: 'center',
+        font: {size: 16, color: INK}
+      };
+      layout.xaxis.title = {text: 'Year'};
+      layout.yaxis.title = {text: 'Annual income (US dollars)'};
+      layout.yaxis.tickformat = '$,.0f';
+      layout.legend.x = 0.5;
+      layout.legend.xanchor = 'center';
+      drawStoryChart(element, [
+        storyTrace(rows, 'income_all_ages', 'All-household salary', COOL, money),
+        storyTrace(rows, 'income_young', 'Young-household salary', '#6b8e23', money),
+        storyTrace(rows, 'required_income', 'Income required to qualify', '#c1442e', money)
+      ], layout);
+    } else if (figure === '2') {
+      const rows = validRows(affordability, ['year', 'median_price', 'monthly_piti']);
+      const base = rows.find(row => Number(row.year) === 2021) || rows[0];
+      const indexed = rows.map(row => ({...row, price_index: Number(row.median_price) / Number(base.median_price) * 100, payment_index: Number(row.monthly_piti) / Number(base.monthly_piti) * 100}));
+      drawStoryChart(element, [
+        storyTrace(indexed, 'price_index', 'Median home price', COOL, () => '%{y:.0f} index'),
+        storyTrace(indexed, 'payment_index', 'Monthly payment', '#c1442e', () => '%{y:.0f} index')
+      ], storyLayout('Index (2021 = 100)'));
+    } else if (figure === '3') {
+      const rows = validRows(affordability, ['year', 'affordability_index']);
+      const maxValue = Math.max(...rows.map(row => Number(row.affordability_index)), 100);
+      const layout = storyLayout('Index (100 = exactly qualifies)', false);
+      layout.yaxis.range = [0, Math.ceil(maxValue / 10) * 10];
+      layout.shapes = [
+        {type: 'rect', xref: 'paper', x0: 0, x1: 1, y0: 0, y1: 75, fillcolor: 'rgba(193,68,46,0.09)', line: {width: 0}},
+        {type: 'rect', xref: 'paper', x0: 0, x1: 1, y0: 75, y1: 100, fillcolor: 'rgba(220,174,52,0.14)', line: {width: 0}},
+        {type: 'rect', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: layout.yaxis.range[1], fillcolor: 'rgba(72,143,84,0.12)', line: {width: 0}},
+        {type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: 100, line: {color: '#488f54', width: 2}}
+      ];
+      drawStoryChart(element, [storyTrace(rows, 'affordability_index', 'Affordability index', COOL, percent)], layout);
+    } else if (figure === '4') {
+      const rows = validRows(age, ['date', 'hor_under_35', 'hor_all']);
+      drawStoryChart(element, [
+        storyTrace(rows, 'hor_under_35', 'Under 35', '#c1442e', percent),
+        storyTrace(rows, 'hor_all', 'All ages', COOL, percent)
+      ], {...storyLayout('Homeownership rate (%)'), xaxis: {title: {text: 'Quarter'}, gridcolor: GRID, zeroline: false, linecolor: GRID}});
+    } else if (figure === '6') {
+      const rows = validRows(affordability, ['year', 'years_to_save_down']);
+      drawStoryChart(element, [storyTrace(rows, 'years_to_save_down', 'Years to save 20% down', '#c1442e', () => '%{y:.1f} years')], storyLayout('Years', false));
+    } else if (figure === '8') {
+      const rows = validRows(affordability, ['year', 'asking_rent_real2024']);
+      drawStoryChart(element, [storyTrace(rows, 'asking_rent_real2024', 'Real asking rent', '#c1442e', money)], storyLayout('Monthly rent (2024 dollars)', false));
+    }
   });
 }
 
@@ -241,6 +357,46 @@ function initTabs() {
       });
     });
   });
+
+  document.querySelectorAll('.story-figure-btn[data-storyfig]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setStoryFigure(btn.dataset.storyfig);
+    });
+  });
+
+  document.querySelectorAll('.story-figure-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = Number(document.querySelector('.story-figure-btn.is-active')?.dataset.storyfig || 1);
+      const next = btn.dataset.direction === 'next' ? current + 1 : current - 1;
+      const total = document.querySelectorAll('.story-figure-btn[data-storyfig]').length;
+      const target = ((next - 1 + total) % total) + 1;
+      setStoryFigure(String(target));
+    });
+  });
+
+}
+
+function setStoryFigure(target) {
+  const total = document.querySelectorAll('.story-figure-btn[data-storyfig]').length;
+  const safeTarget = Math.min(Math.max(1, Number(target) || 1), total);
+
+  document.querySelectorAll('.story-figure-btn[data-storyfig]').forEach(b => {
+    b.classList.toggle('is-active', Number(b.dataset.storyfig) === safeTarget);
+  });
+
+  document.querySelectorAll('.story-figure-panel[data-tabgroup="story-figures"]').forEach(panel => {
+    const show = panel.id === `story-figure-${safeTarget}`;
+    panel.hidden = !show;
+    panel.classList.toggle('is-active', show);
+  });
+
+  const activePanel = document.querySelector(`#story-figure-${safeTarget}`);
+  const summary = document.getElementById('story-figure-summary');
+  const title = document.getElementById('story-figure-title');
+  if (activePanel && summary && title) {
+    summary.textContent = activePanel.dataset.figureSummary || summary.textContent;
+    title.textContent = activePanel.dataset.figureTitle || title.textContent;
+  }
 }
 
 function renderRegionalComparison() {
@@ -294,19 +450,9 @@ function bindChartSelection() {
   });
 }
 
-/* fetch() is blocked on file:// URLs, so the explorer cannot load there. The
- * story figures are <img> and render fine either way — say so, rather than
- * leaving a reader with silently empty cards. */
-function checkProtocol() {
-  if (location.protocol === 'file:') {
-    const banner = document.getElementById('server-warning');
-    if (banner) banner.hidden = false;
-  }
-}
-
 window.addEventListener('DOMContentLoaded', () => {
-  checkProtocol();
   initTabs();
   renderRegionalComparison();
   renderExplorer();
+  renderStoryFigures().catch(error => console.warn('could not render story figures', error));
 });

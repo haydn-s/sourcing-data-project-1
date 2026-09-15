@@ -160,23 +160,81 @@ a { color: var(--cool); }
 /* ------------------------------------------------------------------ tabs -- */
 .story-selector,
 .spotlight-controls,
-.tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+.tabs,
+.story-figure-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
 .focus-btn,
 .spotlight-btn,
-.tab-btn {
+.tab-btn,
+.story-figure-btn {
   padding: 0.6rem 0.95rem; border: 1px solid var(--grid); border-radius: 999px;
   background: #fff; color: var(--ink-soft); font: inherit; font-size: 0.9rem;
   cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s;
 }
 .focus-btn:hover,
 .spotlight-btn:hover,
-.tab-btn:hover { border-color: var(--cool); color: var(--ink); transform: translateY(-1px); }
+.tab-btn:hover,
+.story-figure-btn:hover { border-color: var(--cool); color: var(--ink); transform: translateY(-1px); }
 .focus-btn.is-active,
 .spotlight-btn.is-active,
-.tab-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
+.tab-btn.is-active,
+.story-figure-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
 .focus-panel[hidden],
 .spotlight-panel[hidden],
-.tab-panel[hidden] { display: none; }
+.tab-panel[hidden],
+.story-figure-panel[hidden] { display: none; }
+
+.story-figure-shell {
+  padding: 1rem; border: 1px solid var(--grid); border-radius: 18px;
+  background: linear-gradient(180deg, #f7f9fc 0%, #ffffff 100%);
+}
+.story-figure-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem;
+}
+.story-figure-kicker {
+  margin: 0 0 0.2rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+}
+.story-figure-header h3 {
+  margin: 0; font-size: clamp(1.05rem, 2vw, 1.45rem); letter-spacing: -0.015em;
+}
+.story-figure-nav {
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+.story-figure-nav-btn {
+  border: 1px solid var(--grid); background: #fff; color: var(--ink-soft); border-radius: 999px;
+  padding: 0.55rem 0.8rem; font: inherit; cursor: pointer; transition: all 0.12s ease;
+}
+.story-figure-nav-btn:hover { border-color: var(--cool); color: var(--ink); }
+.story-figure-summary {
+  background: rgba(43,108,176,0.05); border: 1px solid rgba(43,108,176,0.13); border-left: 4px solid var(--cool);
+  color: var(--ink-soft); border-radius: 10px; padding: 0.9rem 1rem; margin-bottom: 1rem; line-height: 1.5;
+}
+.story-figure-stage {
+  background: #fff; border: 1px solid var(--grid); border-radius: 14px; padding: 1rem;
+}
+.story-figure-panel { margin: 0; }
+.story-figure-card {
+  background: #fff; border: 1px solid var(--grid); border-radius: 12px; padding: 0.75rem;
+  box-shadow: 0 14px 30px rgba(29, 36, 51, 0.04); transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: zoom-in;
+}
+.story-figure-card:hover { box-shadow: 0 18px 32px rgba(29, 36, 51, 0.08); }
+.story-figure-card.is-expanded {
+  transform: scale(1.01);
+  box-shadow: 0 20px 52px rgba(29, 36, 51, 0.09);
+}
+.story-figure-card img {
+  display: block; width: 100%; max-height: 520px; object-fit: contain;
+  border-radius: 10px; background: #fff;
+}
+.story-chart {
+  width: 100%; min-height: 390px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 0.9rem;
+}
+.story-chart > .js-plotly-plot { margin: 0 auto; }
+.story-figure-panel figcaption {
+  margin-top: 0.9rem; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5;
+}
 
 .focus-panel,
 .spotlight-panel {
@@ -216,6 +274,40 @@ a { color: var(--cool); }
   margin: 0 0 0.5rem; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--ink);
 }
 .takeaway-card p { margin: 0; color: var(--ink-soft); }
+.takeaway-card ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--ink-soft);
+}
+.takeaway-card li + li { margin-top: 0.45rem; }
+
+.data-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.9rem;
+  font-size: 0.92rem;
+  border: 1px solid var(--grid);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.data-matrix th,
+.data-matrix td {
+  border: 1px solid var(--grid);
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+.data-matrix th {
+  background: var(--bg-alt);
+  color: var(--ink);
+  font-weight: 700;
+}
+.data-matrix td { color: var(--ink-soft); }
+.matrix-summary {
+  margin-top: 0.9rem !important;
+  font-weight: 600;
+  color: var(--ink) !important;
+}
 
 /* ----------------------------------------------------------------- cards -- */
 /* min(380px, 100%) rather than a bare 380px: minmax() cannot shrink below its

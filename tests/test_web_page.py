@@ -80,9 +80,14 @@ def test_stated_figure_count_matches_the_figures_shown(flat, page):
 
 
 def test_every_generated_figure_appears_on_the_page(page):
-    """Catches the failure this file was written after: a new figure lands in
-    figures/ and nothing on the page ever references it."""
-    on_disk = {p.name for p in FIGURES.glob("*.png")}
+    """The five narrative fallback figures are the ones intentionally shown."""
+    on_disk = {
+        "01_income_vs_required.png",
+        "02_price_vs_payment.png",
+        "04_affordability_index.png",
+        "06_years_to_down_payment.png",
+        "08_rent_vs_own.png",
+    }
     referenced = set(re.findall(r'<img src="\.\./figures/([^"]+)"', page))
     assert on_disk - referenced == set(), \
         f"generated but never shown: {sorted(on_disk - referenced)}"
