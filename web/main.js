@@ -140,6 +140,18 @@ function renderCard(card, series, key) {
 
   /* A single series needs no legend — the heading names it. Grid and axes stay
    * recessive so the line is the only thing carrying weight. */
+  const xAxisIsDate = Array.isArray(series.x) && series.x.some(value => typeof value === 'string' && /\d{4}-\d{2}-\d{2}/.test(value));
+  const xAxis = {
+    gridcolor: GRID,
+    zeroline: false,
+    linecolor: GRID,
+    tickcolor: GRID,
+    title: {
+      text: xAxisIsDate ? 'Date' : 'Timeline',
+      font: {size: 10, color: MUTED}
+    }
+  };
+
   const layout = {
     margin: {t: 8, r: 12, b: 40, l: 64},
     height: 260,
@@ -147,7 +159,7 @@ function renderCard(card, series, key) {
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
     font: {color: INK, size: 11, family: 'inherit'},
-    xaxis: {gridcolor: GRID, zeroline: false, linecolor: GRID, tickcolor: GRID},
+    xaxis: xAxis,
     yaxis: {
       title: {text: meta.unit, font: {size: 10, color: MUTED}},
       gridcolor: GRID, zeroline: false, linecolor: GRID, tickcolor: GRID
