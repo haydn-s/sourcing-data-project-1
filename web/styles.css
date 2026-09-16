@@ -158,11 +158,9 @@ a { color: var(--cool); }
 }
 
 /* ------------------------------------------------------------------ tabs -- */
-.story-selector,
 .spotlight-controls,
 .tabs,
 .story-figure-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
-.focus-btn,
 .spotlight-btn,
 .tab-btn,
 .story-figure-btn {
@@ -170,15 +168,12 @@ a { color: var(--cool); }
   background: #fff; color: var(--ink-soft); font: inherit; font-size: 0.9rem;
   cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s;
 }
-.focus-btn:hover,
 .spotlight-btn:hover,
 .tab-btn:hover,
 .story-figure-btn:hover { border-color: var(--cool); color: var(--ink); transform: translateY(-1px); }
-.focus-btn.is-active,
 .spotlight-btn.is-active,
 .tab-btn.is-active,
 .story-figure-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
-.focus-panel[hidden],
 .spotlight-panel[hidden],
 .tab-panel[hidden],
 .story-figure-panel[hidden] { display: none; }
@@ -214,35 +209,25 @@ a { color: var(--cool); }
 .story-figure-panel { margin: 0; }
 .story-figure-card {
   background: #fff; border: 1px solid var(--grid); border-radius: 12px; padding: 0.75rem;
-  box-shadow: 0 14px 30px rgba(29, 36, 51, 0.04); transition: transform 0.18s ease, box-shadow 0.18s ease;
-  cursor: zoom-in;
+  box-shadow: 0 14px 30px rgba(29, 36, 51, 0.04);
 }
-.story-figure-card:hover { box-shadow: 0 18px 32px rgba(29, 36, 51, 0.08); }
-.story-figure-card.is-expanded {
-  transform: scale(1.01);
-  box-shadow: 0 20px 52px rgba(29, 36, 51, 0.09);
-}
+.story-figure-card + .story-figure-card { margin-top: 1rem; }
 .story-figure-card img {
   display: block; width: 100%; max-height: 520px; object-fit: contain;
   border-radius: 10px; background: #fff;
 }
-.story-chart {
-  width: 100%; min-height: 390px;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--muted); font-size: 0.9rem;
-}
-.story-chart > .js-plotly-plot { margin: 0 auto; }
+/* Not a flex container: Plotly's wrapper has no intrinsic width, so centring it
+   collapsed it to zero and drew the chart from the card's midpoint rightward,
+   off the edge of the page. The no-data message centres itself via .chart-empty. */
+.story-chart { width: 100%; min-height: 390px; }
 .story-figure-panel figcaption {
   margin-top: 0.9rem; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5;
 }
 
-.focus-panel,
 .spotlight-panel {
   margin-bottom: 1.5rem; padding: 1.25rem 1.35rem; border: 1px solid var(--grid); border-radius: var(--radius);
   background: linear-gradient(135deg, rgba(43,108,176,0.05), rgba(193,68,46,0.03));
 }
-.focus-copy h3 { margin: 0 0 0.5rem; font-size: 1.15rem; letter-spacing: -0.01em; }
-.focus-copy p { margin: 0; color: var(--ink-soft); max-width: 72ch; }
 
 .chart-selection-detail {
   margin-bottom: 1rem; padding: 0.8rem 1rem; border: 1px solid rgba(43,108,176,0.2);

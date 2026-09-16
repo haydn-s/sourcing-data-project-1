@@ -116,18 +116,32 @@ def test_stated_figure_count_matches_the_figures_shown(flat, page):
     assert word_or_digit(m.group(1)) == shown
 
 
+# Figures the story deliberately leaves out, and why. Anything else in figures/
+# must be on the page. A hardcoded list of the figures *shown* -- which this
+# replaced -- passes when a figure silently drops out, which is how figure 05,
+# the outcome the project measures, went missing without a test failing.
+EXCLUDED_FIGURES = {
+    "03_payment_decomposition.png":
+        "Methodology. Reason 2 quotes its headline split in prose; the chart is in the README.",
+    "07_decomposition_sensitivity.png":
+        "Methodology: the base-year robustness check, documented in the README.",
+}
+
+
 def test_every_generated_figure_appears_on_the_page(page):
-    """The five narrative fallback figures are the ones intentionally shown."""
-    on_disk = {
-        "01_income_vs_required.png",
-        "02_price_vs_payment.png",
-        "04_affordability_index.png",
-        "06_years_to_down_payment.png",
-        "08_rent_vs_own.png",
-    }
+    on_disk = {p.name for p in FIGURES.glob("*.png")}
     referenced = set(re.findall(r'<img src="\.\./figures/([^"]+)"', page))
-    assert on_disk - referenced == set(), \
-        f"generated but never shown: {sorted(on_disk - referenced)}"
+    missing = on_disk - referenced - set(EXCLUDED_FIGURES)
+    assert not missing, f"generated but neither shown nor deliberately excluded: {sorted(missing)}"
+
+
+def test_figure_exclusions_are_still_true(page):
+    """An exclusion for a figure that no longer exists, or that is now shown,
+    is a stale reason nobody will notice."""
+    referenced = set(re.findall(r'<img src="\.\./figures/([^"]+)"', page))
+    for name in EXCLUDED_FIGURES:
+        assert (FIGURES / name).exists(), f"{name} is excluded but no longer generated"
+        assert name not in referenced, f"{name} is excluded but the page shows it"
 
 
 def test_no_figure_reference_is_broken(page):
@@ -404,3 +418,165 @@ def test_house_hack_makes_no_riskless_return_claims(flat):
     for phrase in ("mathematically proven", "minimizing downside", "minimize downside",
                    "guaranteed", "risk-free", "no risk"):
         assert phrase not in text, f"overclaim in the house hacking section: {phrase!r}"
+
+
+# --------------------------------------------------------------------- story
+
+def _panel_attr(page, n, attr):
+    m = re.search(rf'<figure id="story-figure-{n}"[^>]*\b{attr}="([^"]*)"', page)
+    assert m, f"story panel {n} has no {attr}"
+    return m.group(1)
+
+
+def test_story_heading_counts_the_reason_tabs(flat):
+    """The heading once promised "Six Reasons" over four reason tabs."""
+    m = re.search(r"The Story: ([A-Za-z]+) Reasons", flat)
+    assert m, "the story heading no longer states a count"
+    tabs = re.findall(r'data-storyfig="\d+">Reason (\d+)<', flat)
+    assert word_or_digit(m.group(1)) == len(tabs)
+    assert [int(t) for t in tabs] == list(range(1, len(tabs) + 1))
+
+
+def test_story_tabs_and_panels_pair_up(page):
+    buttons = [int(n) for n in re.findall(r'class="story-figure-btn[^"]*" data-storyfig="(\d+)"', page)]
+    panels = [int(n) for n in re.findall(r'<figure id="story-figure-(\d+)"', page)]
+    assert buttons == panels == list(range(1, len(panels) + 1))
+
+
+def test_each_story_chart_matches_its_fallback_figure(page):
+    """Chart keys are the PNG numbers. Reason 3's chart was keyed "3" but drew
+    figure 04, and Reason 2's text described a different chart from its own;
+    pairing each chart with the PNG beside it keeps the two describing one thing."""
+    pairs = re.findall(r'data-story-chart="(\d{2})".*?<img src="\.\./figures/(\d{2})_', page, re.S)
+    assert pairs, "no story charts found"
+    for chart, png in pairs:
+        assert chart == png, f"story chart {chart} sits beside figure {png}"
+    js = (WEB / "main.js").read_text()
+    drawn = set(re.findall(r"'(\d{2})': element =>", js))
+    assert {c for c, _ in pairs} <= drawn, "a story chart has no renderer in main.js"
+
+
+def test_first_story_summary_matches_reason_one(flat, page):
+    """The summary shown on load differed from Reason 1's own, so it changed the
+    first time a reader clicked back to Reason 1."""
+    static = re.search(r'id="story-figure-summary"[^>]*>\s*(.*?)\s*</div>', flat).group(1)
+    title = re.search(r'id="story-figure-title">(.*?)</h3>', flat).group(1)
+    assert static == _panel_attr(page, 1, "data-figure-summary")
+    assert title == _panel_attr(page, 1, "data-figure-title")
+
+
+def test_story_charts_use_the_configured_narrative_years():
+    """Reason 2's chart indexed at 2021, the base year config.INDEX_BASE_YEAR's
+    comment explains was rejected for flattering the claim."""
+    import config
+    js = (WEB / "main.js").read_text()
+    for name in ("INDEX_BASE_YEAR", "SHOCK_START_YEAR", "HOR_BASE_YEAR"):
+        m = re.search(rf"const {name} = (\d{{4}});", js)
+        assert m, f"main.js no longer defines {name}"
+        assert int(m.group(1)) == getattr(config, name), f"main.js {name} drifted from config"
+
+
+def test_story_charts_skip_missing_values_and_partial_years():
+    """Number(null) is 0, so a finiteness check alone drew every unpublished
+    year as $0 and sent the income lines off the bottom of Reason 1."""
+    body = _js_function((WEB / "main.js").read_text(), "validRows")
+    assert "!= null" in body and "is_partial_year" in body
+
+
+def _money(token):
+    return float(token.replace(",", "").replace("$", ""))
+
+
+@pytest.mark.requires_data
+def test_reason_one_income_figures_match_the_data(page, aff):
+    text = _panel_attr(page, 1, "data-figure-summary")
+    m = re.search(r"In (\d{4}) the median household aged 25–34 earned \$([\d,]+) against "
+                  r"\$([\d,]+) required; by (\d{4}) it earned \$([\d,]+) against \$([\d,]+)", text)
+    assert m, "Reason 1's income comparison changed wording"
+    latest = int(aff["income_young"].dropna().index.max())
+    assert int(m.group(4)) == latest, "Reason 1 does not quote the latest income year"
+    for year, earned, required in ((int(m.group(1)), m.group(2), m.group(3)),
+                                   (latest, m.group(5), m.group(6))):
+        assert _money(earned) == round(aff.loc[year, "income_young"])
+        assert _money(required) == round(aff.loc[year, "required_income"])
+
+
+@pytest.mark.requires_data
+def test_reason_two_price_and_payment_figures_match_the_data(page, aff):
+    import pandas as pd
+    from config import INDEX_BASE_YEAR, SHOCK_END_YEAR, SHOCK_START_YEAR
+    text = _panel_attr(page, 2, "data-figure-summary")
+    full = aff[~aff["is_partial_year"].astype(bool)]
+    last = int(full[["median_price", "monthly_piti"]].dropna().index.max())
+    pct = lambda col, start: round((full.loc[last, col] / full.loc[start, col] - 1) * 100)
+
+    m = re.search(rf"[Ff]rom {INDEX_BASE_YEAR} to {last} the median price rose (\d+)% "
+                  r"and the monthly payment on it (\d+)%", text)
+    assert m, "Reason 2's long-run comparison changed wording or years"
+    assert int(m.group(1)) == pct("median_price", INDEX_BASE_YEAR)
+    assert int(m.group(2)) == pct("monthly_piti", INDEX_BASE_YEAR)
+
+    m = re.search(rf"after {SHOCK_START_YEAR}\. Since then the price is up (\d+)% and the payment (\d+)%", text)
+    assert m, "Reason 2's since-the-shock comparison changed wording"
+    assert int(m.group(1)) == pct("median_price", SHOCK_START_YEAR)
+    assert int(m.group(2)) == pct("monthly_piti", SHOCK_START_YEAR)
+
+    csv = ROOT / "data" / "processed" / "payment_decomposition.csv"
+    row = pd.read_csv(csv, index_col="year").loc[SHOCK_END_YEAR]
+    m = re.search(rf"(\d+)% of the \$([\d,]+) monthly increase from {SHOCK_START_YEAR} "
+                  rf"to {SHOCK_END_YEAR} came from higher rates", text)
+    assert m, "Reason 2's decomposition claim changed wording"
+    assert int(m.group(1)) == round(row["rate_effect_share"])
+    assert _money(m.group(2)) == round(row["total_change"])
+
+
+@pytest.mark.requires_data
+def test_reason_three_index_figures_match_the_data(flat, page, aff):
+    text = _panel_attr(page, 3, "data-figure-summary")
+    m = re.search(r"fell from ([\d.]+) in (\d{4}) to ([\d.]+) in (\d{4}), "
+                  r"and recovered only to ([\d.]+) in (\d{4})", text)
+    assert m, "Reason 3's index path changed wording"
+    idx = aff["affordability_index"].dropna()
+    assert int(m.group(2)) == idx.idxmax(), "Reason 3's starting point is no longer the peak"
+    assert int(m.group(6)) == idx.index.max(), "Reason 3 does not end at the latest year"
+    for value, year in ((m.group(1), m.group(2)), (m.group(3), m.group(4)), (m.group(5), m.group(6))):
+        assert float(value) == round(idx[int(year)], 1)
+
+    m = re.search(r"lower still in 1984 \(([\d.]+)\), when mortgage rates averaged ([\d.]+)%", flat)
+    assert m, "Reason 3's 1984 comparison changed wording"
+    assert float(m.group(1)) == round(aff.loc[1984, "affordability_index"], 1)
+    assert float(m.group(2)) == round(aff.loc[1984, "mortgage_rate"], 1)
+
+
+@pytest.mark.requires_data
+def test_reason_four_saving_figures_match_the_data(page, aff):
+    text = _panel_attr(page, 4, "data-figure-summary")
+    m = re.search(r"needed ([\d.]+) years to save a 20% down payment on the median home "
+                  r"in (\d{4}) and ([\d.]+) years in (\d{4})", text)
+    assert m, "Reason 4's saving comparison changed wording"
+    years = aff["years_to_save_down"].dropna()
+    assert int(m.group(4)) == years.index.max()
+    for value, year in ((m.group(1), m.group(2)), (m.group(3), m.group(4))):
+        assert float(value) == round(years[int(year)], 1)
+
+
+@pytest.mark.requires_data
+def test_result_homeownership_figures_match_the_data(page, aff):
+    from config import HOR_BASE_YEAR
+    text = _panel_attr(page, 5, "data-figure-summary")
+    full = aff[~aff["is_partial_year"].astype(bool)]
+    under, allages = full["hor_under_35"].dropna(), full["hor_all"].dropna()
+    m = re.search(r"peaked at ([\d.]+)% in (\d{4}) and fell to ([\d.]+)% in (\d{4})\. "
+                  rf"In (\d{{4}}) it was ([\d.]+)%, just below the ([\d.]+)% of {HOR_BASE_YEAR}, "
+                  rf"while the rate for all ages, ([\d.]+)%, was above its {HOR_BASE_YEAR} level of ([\d.]+)%", text)
+    assert m, "the result's homeownership summary changed wording"
+    peak, low, latest = int(m.group(2)), int(m.group(4)), int(m.group(5))
+    assert peak == under.idxmax() and low == under.loc[peak:].idxmin() and latest == under.index.max()
+    assert float(m.group(1)) == round(under[peak], 1)
+    assert float(m.group(3)) == round(under[low], 1)
+    assert float(m.group(6)) == round(under[latest], 1)
+    assert float(m.group(7)) == round(under[HOR_BASE_YEAR], 1)
+    assert under[latest] < under[HOR_BASE_YEAR], "'just below' the base year no longer holds"
+    assert float(m.group(8)) == round(allages[latest], 1)
+    assert float(m.group(9)) == round(allages[HOR_BASE_YEAR], 1)
+    assert allages[latest] > allages[HOR_BASE_YEAR], "'above its base-year level' no longer holds"

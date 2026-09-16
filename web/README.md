@@ -3,9 +3,11 @@
 A single static page that leads with the analysis and keeps an interactive
 explorer underneath it:
 
-- **The story** — the six selected figures from `figures/`, in narrative order, each
-  with the reasoning behind it. They are interactive Plotly charts backed by
-  the generated JSON, with the original PNGs kept as no-JavaScript fallbacks.
+- **The story** — six of the eight figures in `figures/`, as four reasons and a
+  result, each with the reasoning behind it. They are interactive Plotly charts
+  backed by the generated JSON, with the original PNGs kept as no-JavaScript
+  fallbacks. The two decomposition figures (03 and 07) are methodology and stay
+  in the top-level README; `tests/test_web_page.py` records why.
 - **Explore the source data** — every series the project downloads, one chart
   per series, drawn with Plotly from the JSON in `web/data/`. This part needs
   `fetch()`, which browsers block on `file://` URLs.

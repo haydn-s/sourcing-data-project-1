@@ -16,6 +16,12 @@ const COOL = '#2b6cb0';
 const MUTED = '#8a94a6';
 const GRID = '#dfe3ea';
 
+/* Narrative years shared with src/config.py. tests/test_web_page.py fails if
+ * these drift from the config, so the page and the PNGs cannot disagree. */
+const INDEX_BASE_YEAR = 2005;
+const SHOCK_START_YEAR = 2021;
+const HOR_BASE_YEAR = 1994;
+
 /* Every series the explorer can draw: a human label, the unit for the y-axis,
  * and a one-line note on why it is in the project at all. Without this the axis
  * title falls back to a FRED series ID, which tells a reader nothing. */
@@ -185,8 +191,15 @@ function findBundle(bundles, name) {
   return bundles.find(bundle => bundle.name === name)?.records || [];
 }
 
+/* Rows where every field holds a real number, from complete years only.
+ * The null check is load-bearing: Number(null) is 0, which is finite, so without
+ * it every year the source has not published yet (income stops in 2024) was drawn
+ * as $0 -- lines plunging off the bottom of the chart. A partial year is dropped
+ * for the reason features.latest_complete_year gives: a year-to-date average
+ * should not read as the latest full year. */
 function validRows(rows, fields) {
-  return rows.filter(row => fields.every(field => Number.isFinite(Number(row[field]))));
+  return rows.filter(row => !row.is_partial_year
+    && fields.every(field => row[field] != null && Number.isFinite(Number(row[field]))));
 }
 
 function storyTrace(rows, field, name, color, formatter) {
@@ -207,17 +220,21 @@ function storyLayout(yTitle, showLegend = true) {
     height: 390,
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
-    font: {color: INK, size: 11, family: 'inherit'},
+    // The page's real font stack, not 'inherit': Plotly measures legend text
+    // with the family it is given, and 'inherit' measured too narrow and
+    // clipped the last legend entry.
+    font: {color: INK, size: 11, family: getComputedStyle(document.body).fontFamily},
     showlegend: showLegend,
     legend: {orientation: 'h', y: 1.12, x: 0},
-    xaxis: {title: {text: 'Year'}, gridcolor: GRID, zeroline: false, linecolor: GRID},
-    yaxis: {title: {text: yTitle}, gridcolor: GRID, zeroline: false, linecolor: GRID},
+    xaxis: {title: {text: 'Year'}, gridcolor: GRID, zeroline: false, linecolor: GRID, automargin: true},
+    yaxis: {title: {text: yTitle}, gridcolor: GRID, zeroline: false, linecolor: GRID, automargin: true},
     hoverlabel: {bgcolor: '#ffffff', bordercolor: GRID, font: {color: INK}}
   };
 }
 
 function drawStoryChart(element, traces, layout) {
   if (!traces.length) {
+    element.classList.add('chart-empty');
     element.textContent = 'This figure needs the generated web data to load.';
     return;
   }
@@ -228,48 +245,52 @@ async function renderStoryFigures() {
   const charts = document.querySelectorAll('.story-chart[data-story-chart]');
   if (!charts.length) return;
 
-  const [housing, debt, ownership] = await Promise.all([
-    fetchJson('data/housing_market.json'),
-    fetchJson('data/consumer_debt.json'),
-    fetchJson('data/housing_market.json')
-  ]);
+  const housing = await fetchJson('data/housing_market.json');
   const affordability = findBundle(housing, 'affordability.csv');
-  const decomposition = findBundle(debt, 'payment_decomposition.csv');
-  const sensitivity = findBundle(debt, 'decomposition_sensitivity.csv');
-  const age = findBundle(ownership, 'homeownership_age.csv');
   const money = () => '$%{y:,.0f}';
   const percent = () => '%{y:.1f}%';
+  const RED = '#c1442e';
 
-  charts.forEach(element => {
-    const figure = element.dataset.storyChart;
-    if (figure === '1') {
+  /* Keyed by the PNG each chart stands in for (figures/NN_*.png), so a chart
+   * and its <noscript> fallback carry the same number. */
+  const draw = {
+    '01': element => {
       const rows = validRows(affordability, ['year', 'income_young', 'income_all_ages', 'required_income']);
+      // No in-chart title: the panel header names the figure, and a title here
+      // collided with the horizontal legend.
       const layout = storyLayout('Annual income (US dollars)');
-      layout.title = {
-        text: 'Salary vs. income needed to qualify',
-        x: 0.5,
-        xanchor: 'center',
-        font: {size: 16, color: INK}
-      };
-      layout.xaxis.title = {text: 'Year'};
-      layout.yaxis.title = {text: 'Annual income (US dollars)'};
       layout.yaxis.tickformat = '$,.0f';
-      layout.legend.x = 0.5;
-      layout.legend.xanchor = 'center';
       drawStoryChart(element, [
-        storyTrace(rows, 'income_all_ages', 'All-household salary', COOL, money),
-        storyTrace(rows, 'income_young', 'Young-household salary', '#6b8e23', money),
-        storyTrace(rows, 'required_income', 'Income required to qualify', '#c1442e', money)
+        storyTrace(rows, 'income_all_ages', 'All households', COOL, money),
+        storyTrace(rows, 'income_young', 'Households aged 25–34', '#6b8e23', money),
+        storyTrace(rows, 'required_income', 'Income required to qualify', RED, money)
       ], layout);
-    } else if (figure === '2') {
-      const rows = validRows(affordability, ['year', 'median_price', 'monthly_piti']);
-      const base = rows.find(row => Number(row.year) === 2021) || rows[0];
-      const indexed = rows.map(row => ({...row, price_index: Number(row.median_price) / Number(base.median_price) * 100, payment_index: Number(row.monthly_piti) / Number(base.monthly_piti) * 100}));
+    },
+    '02': element => {
+      // Indexed at INDEX_BASE_YEAR, not at the 2021 rate low: from 2021 the gap
+      // looks permanent, from 2005 it is visibly a post-2021 split. Same choice,
+      // and the same shading, as figures/02_price_vs_payment.png.
+      const rows = validRows(affordability, ['year', 'median_price', 'monthly_piti'])
+        .filter(row => row.year >= INDEX_BASE_YEAR);
+      const base = rows.find(row => row.year === INDEX_BASE_YEAR);
+      if (!base) return drawStoryChart(element, [], {});
+      const indexed = rows.map(row => ({...row,
+        price_index: row.median_price / base.median_price * 100,
+        payment_index: row.monthly_piti / base.monthly_piti * 100}));
+      const last = indexed.at(-1).year;
+      const layout = storyLayout(`Index (${INDEX_BASE_YEAR} = 100)`);
+      layout.shapes = [
+        {type: 'rect', xref: 'x', yref: 'paper', x0: SHOCK_START_YEAR, x1: last, y0: 0, y1: 1,
+         fillcolor: 'rgba(193,68,46,0.07)', line: {width: 0}, layer: 'below'},
+        {type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: 100,
+         line: {color: MUTED, width: 1, dash: 'dash'}}
+      ];
       drawStoryChart(element, [
-        storyTrace(indexed, 'price_index', 'Median home price', COOL, () => '%{y:.0f} index'),
-        storyTrace(indexed, 'payment_index', 'Monthly payment', '#c1442e', () => '%{y:.0f} index')
-      ], storyLayout('Index (2021 = 100)'));
-    } else if (figure === '3') {
+        storyTrace(indexed, 'price_index', 'Median home price', COOL, () => '%{y:.0f}'),
+        storyTrace(indexed, 'payment_index', 'Monthly payment', RED, () => '%{y:.0f}')
+      ], layout);
+    },
+    '04': element => {
       const rows = validRows(affordability, ['year', 'affordability_index']);
       const maxValue = Math.max(...rows.map(row => Number(row.affordability_index)), 100);
       const layout = storyLayout('Index (100 = exactly qualifies)', false);
@@ -280,20 +301,41 @@ async function renderStoryFigures() {
         {type: 'rect', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: layout.yaxis.range[1], fillcolor: 'rgba(72,143,84,0.12)', line: {width: 0}},
         {type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: 100, line: {color: '#488f54', width: 2}}
       ];
-      drawStoryChart(element, [storyTrace(rows, 'affordability_index', 'Affordability index', COOL, percent)], layout);
-    } else if (figure === '4') {
-      const rows = validRows(age, ['date', 'hor_under_35', 'hor_all']);
-      drawStoryChart(element, [
-        storyTrace(rows, 'hor_under_35', 'Under 35', '#c1442e', percent),
-        storyTrace(rows, 'hor_all', 'All ages', COOL, percent)
-      ], {...storyLayout('Homeownership rate (%)'), xaxis: {title: {text: 'Quarter'}, gridcolor: GRID, zeroline: false, linecolor: GRID}});
-    } else if (figure === '6') {
+      // An index, not a percentage: no % suffix on hover.
+      drawStoryChart(element, [storyTrace(rows, 'affordability_index', 'Affordability index', COOL, () => '%{y:.1f}')], layout);
+    },
+    '05': element => {
+      // Two stacked panels, as in figures/05_homeownership_by_age.png: the
+      // all-ages rate sits ~28 points higher, and one shared axis would flatten
+      // the under-35 line into a near-straight one.
+      const rows = validRows(affordability, ['year', 'hor_under_35', 'hor_all']);
+      const start = rows.find(row => row.year === HOR_BASE_YEAR);
+      const layout = storyLayout('Under 35 (%)', false);
+      layout.height = 440;
+      layout.yaxis.domain = [0.42, 1];
+      layout.xaxis.anchor = 'y2';
+      layout.yaxis2 = {domain: [0, 0.3], title: {text: 'All ages (%)'}, gridcolor: GRID, zeroline: false, linecolor: GRID, automargin: true};
+      if (start) {
+        layout.shapes = [{type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1,
+          y0: start.hor_under_35, y1: start.hor_under_35, line: {color: MUTED, width: 1, dash: 'dash'}}];
+      }
+      const allAges = storyTrace(rows, 'hor_all', 'All ages', COOL, percent);
+      allAges.yaxis = 'y2';
+      drawStoryChart(element, [storyTrace(rows, 'hor_under_35', 'Under 35', RED, percent), allAges], layout);
+    },
+    '06': element => {
       const rows = validRows(affordability, ['year', 'years_to_save_down']);
-      drawStoryChart(element, [storyTrace(rows, 'years_to_save_down', 'Years to save 20% down', '#c1442e', () => '%{y:.1f} years')], storyLayout('Years', false));
-    } else if (figure === '8') {
+      drawStoryChart(element, [storyTrace(rows, 'years_to_save_down', 'Years to save 20% down', RED, () => '%{y:.1f} years')], storyLayout('Years', false));
+    },
+    '08': element => {
       const rows = validRows(affordability, ['year', 'asking_rent_real2024']);
-      drawStoryChart(element, [storyTrace(rows, 'asking_rent_real2024', 'Real asking rent', '#c1442e', money)], storyLayout('Monthly rent (2024 dollars)', false));
+      drawStoryChart(element, [storyTrace(rows, 'asking_rent_real2024', 'Real asking rent', RED, money)], storyLayout('Monthly rent (2024 dollars)', false));
     }
+  };
+
+  charts.forEach(element => {
+    const render = draw[element.dataset.storyChart];
+    if (render) render(element);
   });
 }
 
@@ -319,24 +361,6 @@ function initTabs() {
         if (show) {
           panel.querySelectorAll('.chart').forEach(el => Plotly.Plots.resize(el));
         }
-      });
-    });
-  });
-
-  document.querySelectorAll('.focus-btn[data-focus]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const group = btn.closest('[data-tabgroup]').dataset.tabgroup;
-      const target = btn.dataset.focus;
-
-      document.querySelectorAll(`.focus-btn[data-focus]`).forEach(b => {
-        if (b.closest('[data-tabgroup]').dataset.tabgroup === group) {
-          b.classList.toggle('is-active', b === btn);
-        }
-      });
-      document.querySelectorAll(`.focus-panel[data-tabgroup="${group}"]`).forEach(panel => {
-        const show = panel.id === `focus-${target}`;
-        panel.hidden = !show;
-        panel.classList.toggle('is-active', show);
       });
     });
   });
@@ -391,6 +415,11 @@ function setStoryFigure(target) {
   });
 
   const activePanel = document.querySelector(`#story-figure-${safeTarget}`);
+  // A chart drawn while its panel was hidden measured zero width and fell back
+  // to Plotly's 700px default; resize it now that it can measure its card.
+  activePanel?.querySelectorAll('.story-chart').forEach(el => {
+    if (el.data) Plotly.Plots.resize(el);
+  });
   const summary = document.getElementById('story-figure-summary');
   const title = document.getElementById('story-figure-title');
   if (activePanel && summary && title) {
