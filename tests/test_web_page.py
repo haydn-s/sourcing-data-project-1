@@ -215,6 +215,40 @@ def test_hero_rent_figure_matches_the_data(flat):
     assert int(m.group(1)) == pytest.approx(growth, abs=1)
 
 
+@pytest.mark.requires_data
+def test_headline_claims_about_price_and_payment_match_the_data(flat):
+    """The headline once said housing was "at an all-time high". The median
+    price the whole story is built on peaked in 2022 and fell every year after,
+    so that was false by the page's own measure. The replacement makes two
+    claims, and both are checked: prices eased from their peak without falling
+    far, and the payment rose much faster than the price did."""
+    import pandas as pd
+    csv = ROOT / "data" / "processed" / "affordability.csv"
+    if not csv.exists():
+        pytest.skip("run `python src/run_all.py` first")
+    aff = pd.read_csv(csv, index_col="year")
+    aff = aff[~aff["is_partial_year"].astype(bool)]
+
+    h1 = re.search(r"<h1>(.*?)</h1>", flat)
+    assert h1, "the hero has no headline"
+    headline = h1.group(1).lower()
+    assert not re.search(r"all-time high|record high", headline), \
+        "the headline claims a record the median price does not show"
+
+    price, payment = aff["median_price"], aff["monthly_piti"]
+    if "barely eased" in headline:
+        latest = price.index.max()
+        drop = (price.iloc[-1] / price.max() - 1) * 100
+        assert price.idxmax() < latest and -10 < drop < 0, \
+            f"'barely eased' no longer fits: {drop:+.1f}% from the {price.idxmax()} peak"
+    if "payment soared" in headline:
+        # SHOCK_START_YEAR -> SHOCK_END_YEAR, the window the stat tiles quote.
+        from config import SHOCK_END_YEAR, SHOCK_START_YEAR
+        grew = lambda s: s[SHOCK_END_YEAR] / s[SHOCK_START_YEAR] - 1
+        assert grew(payment) > 3 * grew(price), \
+            "'the monthly payment soared' but it did not outrun the price"
+
+
 def test_any_flatness_claim_in_the_hero_names_its_anchor(flat):
     """"Owning is flat" holds only from the two highest-rate anchors in the
     series, so it is honest only when the anchor is stated alongside it. This
@@ -262,3 +296,111 @@ def test_every_explorer_card_has_a_label_and_units(page):
     declared = set(re.findall(r'data-series="([^"]+)"', page))
     assert declared <= meta_keys, \
         f"cards missing SERIES_META entries: {sorted(declared - meta_keys)}"
+
+
+# ------------------------------------------------------------- house hacking
+
+def _house_hack(flat):
+    """The house-hacking section plus the leverage and summary cards that
+    close it out in Takeaways -- everywhere its numbers appear."""
+    section = re.search(r'<section id="house-hack".*?</section>', flat)
+    leverage = re.search(r"<h3>Leverage Cuts Both Ways.*?</table>", flat)
+    assert section and leverage, "the house hacking section or its leverage card is gone"
+    return section.group(0) + leverage.group(0)
+
+
+def _quoted(text, pattern):
+    m = re.search(pattern, text)
+    assert m, f"claim not found on the page (did the wording change?): {pattern}"
+    return float(m.group(1).replace(",", ""))
+
+
+@pytest.fixture(scope="module")
+def aff():
+    import pandas as pd
+    csv = ROOT / "data" / "processed" / "affordability.csv"
+    if not csv.exists():
+        pytest.skip("run `python src/run_all.py` first")
+    return pd.read_csv(csv, index_col="year")
+
+
+@pytest.mark.requires_data
+def test_house_hack_rent_and_income_claims_match_the_data(flat, aff):
+    """This section used to credit a +62% rent rise to the CPI rent index (it is
+    Census asking rent) and put renters' housing costs at "30% to 45%" of
+    income, which the project's own rent_to_income series does not show."""
+    text = _house_hack(flat)
+    pct = lambda col: (aff.loc[2024, col] / aff.loc[1988, col] - 1) * 100
+    assert _quoted(text, r"asking rent rose <strong>(\d+)%</strong> after inflation from 1988 to 2024") \
+        == round(pct("asking_rent_real2024"))
+    assert _quoted(text, r"aged 25–34 rose <strong>(\d+)%</strong>") == round(pct("income_young_real2024"))
+    assert _quoted(text, r"grew from <strong>(\d+)%</strong> to") == round(aff.loc[1988, "rent_to_income"] * 100)
+    assert _quoted(text, r"grew from <strong>\d+%</strong> to <strong>(\d+)%</strong>") \
+        == round(aff.loc[2024, "rent_to_income"] * 100)
+
+
+@pytest.mark.requires_data
+def test_house_hack_rent_offset_illustration_matches_the_data(flat, aff):
+    text = _house_hack(flat)
+    cost, rent = aff.loc[2024, "monthly_ownership_cost"], aff.loc[2024, "asking_rent"]
+    assert _quoted(text, r"with 20% down, was <strong>\$([\d,]+)</strong>") == round(cost)
+    assert _quoted(text, r"median asking rent of <strong>\$([\d,]+)</strong>") == round(rent)
+    assert _quoted(text, r"would cover <strong>(\d+)%</strong>") == round(rent / cost * 100)
+
+
+def test_house_hack_principal_paydown_matches_the_amortisation(flat):
+    """The section once said $4,000 to $6,000 of principal is repaid in year one
+    on $350,000 at 6.5%. The schedule says about $3,900."""
+    from features import monthly_payment
+    text = _house_hack(flat)
+    loan = _quoted(text, r"on a <strong>\$([\d,]+)</strong> 30-year fixed loan")
+    rate = _quoted(text, r"30-year fixed loan at <strong>([\d.]+)%</strong>")
+    payment = float(monthly_payment(loan, rate, down_pct=0.0))
+    balance, r = loan, rate / 100 / 12
+    for _ in range(12):
+        balance -= payment - balance * r
+    principal = loan - balance
+    assert _quoted(text, r"about <strong>\$([\d,]+)</strong> of the first year's payments") \
+        == pytest.approx(principal, abs=50)
+    assert _quoted(text, r"the other <strong>\$([\d,]+)</strong> or so is interest") \
+        == pytest.approx(payment * 12 - principal, abs=50)
+
+
+@pytest.mark.requires_data
+def test_leverage_card_uses_the_project_price_history(flat, aff):
+    """The appreciation rate in the leverage example is the data's own long-run
+    pace, and the downside cites years the data actually shows."""
+    text = _house_hack(flat)
+    price = aff.loc[~aff["is_partial_year"].astype(bool), "median_price"]
+    first, last = price.index.min(), price.index.max()
+    cagr = ((price[last] / price[first]) ** (1 / (last - first)) - 1) * 100
+    assert re.search(rf"average yearly rise from {first} to {last}", text), \
+        "the leverage card's averaging window no longer matches the data"
+    assert _quoted(text, r"that rises <strong>(\d+)%</strong> in a year") == round(cagr)
+    drop = _quoted(text, r"fell about <strong>(\d+)%</strong> in both 2008 and 2009")
+    changes = price.pct_change() * 100
+    for year in (2008, 2009):
+        assert changes[year] == pytest.approx(-drop, abs=0.5)
+
+    down = _quoted(text, r"with <strong>5%</strong> down \(<strong>\$([\d,]+)</strong>\)")
+    home = _quoted(text, r"a <strong>\$([\d,]+)</strong> home bought")
+    gain = _quoted(text, r"gains <strong>\$([\d,]+)</strong>")
+    assert down == home * 0.05 and gain == home * round(cagr) / 100
+    assert _quoted(text, r"or <strong>(\d+)%</strong> of the down payment") == gain / down * 100
+
+
+def test_house_hack_sources_are_credited(page):
+    sources = re.search(r'<section id="sources".*?</section>', page, re.S)
+    assert sources, "no Sources section"
+    for cited in ("Survey of Consumer Finances", "Eligibility Matrix",
+                  "Publication 527", "Publication 523"):
+        assert cited in sources.group(0), f"the house hacking section relies on {cited}, uncredited"
+
+
+def test_house_hack_makes_no_riskless_return_claims(flat):
+    """The summary card once called house hacking "mathematically proven" and
+    said it minimized downside risk. Leverage does the opposite."""
+    text = _house_hack(flat).lower()
+    for phrase in ("mathematically proven", "minimizing downside", "minimize downside",
+                   "guaranteed", "risk-free", "no risk"):
+        assert phrase not in text, f"overclaim in the house hacking section: {phrase!r}"
