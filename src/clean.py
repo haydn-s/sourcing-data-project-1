@@ -1,8 +1,10 @@
 """Clean raw sources into tidy analysis panels.
 
-Produces three artifacts in data/processed/:
+Produces these artifacts in data/processed/:
   fred_monthly.csv       every FRED series on a common month index
+  metro_hpi_monthly.csv  Case-Shiller home price index for each of the 20 metros
   homeownership_age.csv  Census HVS homeownership rate by age of householder
+  asking_rent.csv        Census HVS median asking rent
   income_by_age.csv      Census CPS H-10 median income by age of householder
   annual_panel.csv       the calendar-year panel the analysis is built on
 
@@ -25,6 +27,7 @@ from config import (
     CENSUS_HVS_TAB19_FILE,
     H10_AGE_SECTIONS,
     FRED_SERIES,
+    METRO_HPI_SERIES,
     PROCESSED,
     RAW_FRED,
     RAW_PARTNER,
@@ -64,6 +67,20 @@ def build_monthly_frame() -> pd.DataFrame:
             m = m.ffill()
         monthly[series_id] = m
     df = pd.DataFrame(monthly).sort_index()
+    df.index.name = "date"
+    return df
+
+
+def build_metro_frame() -> pd.DataFrame:
+    """Put the 20 Case-Shiller metro indices on a shared monthly index.
+
+    Kept out of fred_monthly.csv, which is the national panel. Nothing is
+    forward-filled: the series are already monthly, and a metro that publishes
+    late (in this pull, Detroit trails the rest by a month) must show as
+    missing, not as a repeat of its last value.
+    """
+    df = pd.DataFrame({sid: load_fred_series(sid) for sid in METRO_HPI_SERIES})
+    df = df.resample("MS").mean().sort_index()
     df.index.name = "date"
     return df
 
@@ -278,6 +295,11 @@ def main() -> int:
     monthly.to_csv(PROCESSED / "fred_monthly.csv")
     print(f"fred_monthly.csv       {monthly.shape[0]:>5} months x {monthly.shape[1]} series "
           f"({monthly.index.min():%Y-%m} to {monthly.index.max():%Y-%m})")
+
+    metros = build_metro_frame()
+    metros.to_csv(PROCESSED / "metro_hpi_monthly.csv")
+    print(f"metro_hpi_monthly.csv  {metros.shape[0]:>5} months x {metros.shape[1]} metros "
+          f"({metros.index.min():%Y-%m} to {metros.index.max():%Y-%m})")
 
     hor = parse_homeownership_by_age()
     hor.to_csv(PROCESSED / "homeownership_age.csv", index=False)

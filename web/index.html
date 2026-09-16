@@ -125,15 +125,15 @@
 
       <div id="chart-selection-detail" class="chart-selection-detail" aria-live="polite">
         <strong>Geographic Disparity Spotlight</strong>
-        <span>Compare home price growth across high-demand versus low-demand regions to see where inventory pressure is most acute.</span>
+        <span>A national median hides how differently local markets moved. Compare home price growth across the 20 major metros in the Case-Shiller 20-City index below.</span>
       </div>
 
       <div id="spotlight-inventory" class="spotlight-panel is-active">
         <div class="spotlight-visual">
           <div class="insight-card">
-            <h3>Highest vs. Lowest Growth Regional Housing Markets</h3>
+            <h3>Home Price Growth Across 20 Major Metros, <span id="geo-trends-window">2021–2025</span></h3>
             <p>
-              The adjustment was uneven across regions. Markets with limited inventory and strong population inflows stayed expensive and resilient even when financing costs rose.
+              Every metro in the S&amp;P Cotality Case-Shiller 20-City Composite, ranked by how much home prices changed after inflation. Blue bars outpaced inflation; red bars fell behind it. Hover a bar for the change before inflation.
             </p>
             <div id="geo-trends-chart" class="geo-trends-chart"></div>
           </div>
@@ -446,6 +446,9 @@
           <h3>Federal Reserve Economic Data (FRED)</h3>
           <p>
             Data were retrieved programmatically from FRED with the Federal Reserve Bank of St. Louis, covering mortgage rates, inflation, home price benchmarks, household income, debt, and rents. Eighteen series were retrieved programmatically.
+          </p>
+          <p>
+            The regional comparison adds the home price index for each of the 20 metros in the S&amp;P Cotality Case-Shiller 20-City Composite (not seasonally adjusted), downloaded from FRED the same way.
           </p>
           <p class="cite">
             Federal Reserve Bank of St.&nbsp;Louis, <em>FRED Economic Data</em>.

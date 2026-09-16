@@ -17,6 +17,7 @@ from features import (
     decompose_payment_change,
     decompose_sensitivity,
     latest_complete_year,
+    metro_price_growth,
     monthly_payment,
     piti,
 )
@@ -269,3 +270,91 @@ def test_latest_complete_year_raises_when_nothing_is_complete(affordability):
     d["is_partial_year"] = True
     with pytest.raises(ValueError, match="no complete year"):
         latest_complete_year(d)
+
+
+# ------------------------------------------------------- regional price growth
+
+def _metro_frame(values_by_year, months=12):
+    """Monthly metro indices from per-year levels, one column per series id.
+
+    `values_by_year` maps a series id to {year: level}. The level is repeated
+    for each month unless it is a list, which supplies the months directly --
+    that is how a seasonal pattern or a missing month gets in.
+    """
+    frames = {}
+    for sid, by_year in values_by_year.items():
+        points = {}
+        for year, level in by_year.items():
+            monthly = level if isinstance(level, list) else [level] * months
+            for m, v in enumerate(monthly, start=1):
+                points[pd.Timestamp(year=year, month=m, day=1)] = v
+        frames[sid] = pd.Series(points, dtype=float)
+    return pd.DataFrame(frames).sort_index()
+
+
+@pytest.fixture
+def cpi():
+    return pd.Series({2021: 100.0, 2022: 105.0, 2023: 110.0, 2024: 115.0, 2025: 120.0})
+
+
+def test_metro_growth_compares_annual_means_not_single_months(cpi):
+    """The indices are not seasonally adjusted. A June-to-June or January-to-
+    January comparison would pick up the season; the annual mean cancels it."""
+    seasonal = [90.0] * 6 + [110.0] * 6          # mean 100, but no month is 100
+    metros = _metro_frame({"AAA": {2021: seasonal, 2025: [v * 1.5 for v in seasonal]}})
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert out.loc["AAA", "index_base"] == pytest.approx(100.0)
+    assert out.loc["AAA", "growth_pct"] == pytest.approx(50.0)
+
+
+def test_metro_real_growth_is_zero_when_prices_only_track_inflation(cpi):
+    metros = _metro_frame({"AAA": {2021: 200.0, 2025: 240.0}})   # +20%, CPI +20%
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert out.loc["AAA", "growth_pct"] == pytest.approx(20.0)
+    assert out.loc["AAA", "real_growth_pct"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_metro_ranking_runs_fastest_to_slowest_and_deflating_cannot_reorder_it(cpi):
+    metros = _metro_frame({
+        "SLOW": {2021: 100.0, 2025: 110.0},
+        "FAST": {2021: 100.0, 2025: 150.0},
+        "MID":  {2021: 100.0, 2025: 125.0},
+    })
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert list(out.index) == ["FAST", "MID", "SLOW"]
+    assert list(out["rank"]) == [1, 2, 3]
+    assert list(out["growth_pct"]) == sorted(out["growth_pct"], reverse=True)
+    assert out.loc["SLOW", "real_growth_pct"] < 0 < out.loc["FAST", "real_growth_pct"]
+
+
+def test_metro_names_come_from_config(cpi):
+    metros = _metro_frame({"MIXRNSA": {2021: 100.0, 2025: 110.0},
+                           "UNKNOWN": {2021: 100.0, 2025: 110.0}})
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert out.loc["MIXRNSA", "metro"] == "Miami"
+    assert out.loc["UNKNOWN", "metro"] == "UNKNOWN"     # falls back to the id
+
+
+def test_metro_window_ends_at_the_last_year_every_metro_completed(cpi):
+    """2025 is complete for one metro but the other is still a month short, so
+    the default window must stop at 2024 rather than rank the two on different
+    spans -- the same bug latest_complete_year guards for the national panel."""
+    metros = _metro_frame({
+        "AAA": {2021: 100.0, 2024: 120.0, 2025: 130.0},
+        "BBB": {2021: 100.0, 2024: 110.0, 2025: [115.0] * 11 + [np.nan]},
+    })
+    out = metro_price_growth(metros, cpi, base_year=2021)
+    assert set(out["end_year"]) == {2024}
+    assert out.loc["AAA", "growth_pct"] == pytest.approx(20.0)
+
+
+def test_metro_growth_rejects_an_incomplete_base_year(cpi):
+    metros = _metro_frame({"AAA": {2021: [100.0] * 6 + [np.nan] * 6, 2025: 130.0}})
+    with pytest.raises(ValueError, match="base year 2021"):
+        metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+
+
+def test_metro_growth_rejects_a_year_with_no_cpi(cpi):
+    metros = _metro_frame({"AAA": {2021: 100.0, 2025: 130.0}})
+    with pytest.raises(ValueError, match="no CPI"):
+        metro_price_growth(metros, cpi.drop(2025), base_year=2021, end_year=2025)

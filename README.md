@@ -156,6 +156,32 @@ Retrieved via `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES_ID>`.
 > Federal Reserve Bank of St. Louis, *FRED Economic Data*.
 > https://fred.stlouisfed.org/ (retrieved August 2026).
 
+#### Regional home prices: S&P Cotality Case-Shiller 20-City metros
+
+The regional comparison on the story page uses the home price index for every
+metro in the S&P Cotality Case-Shiller 20-City Composite (formerly S&P
+CoreLogic), retrieved from the same FRED endpoint. All are monthly and not
+seasonally adjusted, matching `CSUSHPINSA`. They are listed in
+`METRO_HPI_SERIES` in [`src/config.py`](src/config.py), kept apart from the
+national series above because they are a cross-section of one measure rather
+than inputs to the monthly panel.
+
+| Series ID | Metro | Series ID | Metro |
+|---|---|---|---|
+| `ATXRNSA` | Atlanta | `MIXRNSA` | Miami |
+| `BOXRNSA` | Boston | `MNXRNSA` | Minneapolis |
+| `CRXRNSA` | Charlotte | `NYXRNSA` | New York |
+| `CHXRNSA` | Chicago | `PHXRNSA` | Phoenix |
+| `CEXRNSA` | Cleveland | `POXRNSA` | Portland |
+| `DAXRNSA` | Dallas | `SDXRNSA` | San Diego |
+| `DNXRNSA` | Denver | `SFXRNSA` | San Francisco |
+| `DEXRNSA` | Detroit | `SEXRNSA` | Seattle |
+| `LVXRNSA` | Las Vegas | `TPXRNSA` | Tampa |
+| `LXXRNSA` | Los Angeles | `WDXRNSA` | Washington, DC |
+
+> S&P Dow Jones Indices LLC, *S&P Cotality Case-Shiller Home Price Indices*,
+> retrieved from FRED, Federal Reserve Bank of St. Louis (retrieved September 2026).
+
 ### U.S. Census Bureau
 
 | Table | Description | Coverage |
@@ -306,11 +332,11 @@ No network required — the suite runs against the committed CSVs. Six groups:
 
 | File | Covers |
 |---|---|
-| [`tests/test_features.py`](tests/test_features.py) | The mortgage maths against a hand-computed amortisation value, and the decomposition identity: `price_effect + rate_effect + interaction` must reconstruct `total_change` exactly, or the residual is hiding a bug rather than reporting one |
+| [`tests/test_features.py`](tests/test_features.py) | The mortgage maths against a hand-computed amortisation value, and the decomposition identity: `price_effect + rate_effect + interaction` must reconstruct `total_change` exactly, or the residual is hiding a bug rather than reporting one. Also the metro growth ranking: annual means, a window only as long as every metro has data for, and a deflator that cannot reorder it |
 | [`tests/test_clean.py`](tests/test_clean.py) | The three Census workbook parsers, against miniature fixtures that reproduce the real quirks — dot-leader quarter labels, footnote markers glued to years, duplicate years, and the two column-header rows. Also asserts each parser *fails loudly* when its assumed layout is gone |
 | [`tests/test_readme_claims.py`](tests/test_readme_claims.py) | Every number in this README, read back out of the markdown by regex and compared to `data/processed/`. Edit a figure in one place and not the other and this fails, naming the claim |
 | [`tests/test_eda.py`](tests/test_eda.py) | The partial-year footnote helper, plus smoke tests that every figure renders and `print_findings` runs |
-| [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown and every explorer card resolves to an exported series |
+| [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown, every explorer card resolves to an exported series, and the regional chart reads the exported ranking rather than numbers typed into `main.js` |
 | [`tests/test_reproducibility.py`](tests/test_reproducibility.py) | That the committed CSVs are what the committed code produces. Compared numerically at a 1e-9 relative tolerance, not byte-for-byte: `piti()` raises `(1+r)` to the 360th power, and the last bit of `pow` differs between an arm64 laptop and an x86-64 CI runner |
 
 `pytest -m "not requires_data"` skips the group that needs a pipeline run.
@@ -318,12 +344,13 @@ No network required — the suite runs against the committed CSVs. Six groups:
 
 ### Generated tables
 
-`python src/run_all.py` writes eight tables to `data/processed/`. The first four
-are cleaned sources; the last four are the analysis.
+`python src/run_all.py` writes ten tables to `data/processed/`. The first five
+are cleaned sources; the last five are the analysis.
 
 | File | Shape | What it holds |
 |---|---|---|
 | `fred_monthly.csv` | 956 × 19 | Every FRED series on a shared monthly index |
+| `metro_hpi_monthly.csv` | 474 × 21 | The 20 Case-Shiller metro indices, monthly, not forward-filled |
 | `homeownership_age.csv` | 130 × 9 | HVS Table 19, quarterly, by age of householder |
 | `asking_rent.csv` | 154 × 5 | HVS Table 11A, quarterly median asking rent |
 | `income_by_age.csv` | 58 × 9 | CPS H-10, median income by age of householder |
@@ -331,6 +358,7 @@ are cleaned sources; the last four are the analysis.
 | `affordability.csv` | 43 × 44 | The engineered features — payment, required income, the index, rent vs own |
 | `payment_decomposition.csv` | 43 × 13 | Price/rate/interaction split against the 2021 base year |
 | `decomposition_sensitivity.csv` | 17 × 25 | The same split re-run from all 17 anchors, nominal and real |
+| `metro_price_growth.csv` | 20 × 9 | Each metro's home price growth from 2021 to the latest complete year, nominal and real, ranked |
 
 ### Repository layout
 
@@ -382,6 +410,14 @@ down, get help from family, buy below the median, or stretch past 28%. The
 national median home does not exist anywhere; housing markets are local, and a
 single national series hides enormous variation between Austin and Cleveland.
 Read these as an index of *pressure over time*, not a prediction for any person.
+
+**The regional comparison is 20 metros, not the country.** Case-Shiller tracks
+20 large metros, so fast-growing markets outside that set (Austin, Nashville,
+Raleigh) and smaller cities are absent. Its repeat-sales method follows the
+same homes over time, which removes changes in *what* sold but also leaves out
+new construction. The real growth figures deflate every metro by national CPI,
+not local living costs, which shifts all 20 bars by the same factor without
+changing their order.
 
 **Medians conceal distribution.** A median income paired with a median price
 tells you nothing about who is actually buying. If the buyer pool shifts toward

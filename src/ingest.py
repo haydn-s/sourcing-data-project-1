@@ -24,6 +24,7 @@ from config import (
     CENSUS_HVS_TAB19_URL,
     FRED_CSV_URL,
     FRED_SERIES,
+    METRO_HPI_SERIES,
     RAW_FRED,
     RAW_PARTNER,
 )
@@ -61,7 +62,12 @@ def _get(url: str) -> bytes:
 
 def fetch_fred(force: bool) -> None:
     RAW_FRED.mkdir(parents=True, exist_ok=True)
-    for series_id, (label, freq, _units) in FRED_SERIES.items():
+    # Metro indices share the endpoint and the file format, so they land beside
+    # the national series and are read back by the same loader.
+    series = [(sid, label, freq) for sid, (label, freq, _units) in FRED_SERIES.items()]
+    series += [(sid, f"Case-Shiller: {metro}", "monthly")
+               for sid, metro in METRO_HPI_SERIES.items()]
+    for series_id, label, freq in series:
         dest = RAW_FRED / f"{series_id}.csv"
         if dest.exists() and not force:
             print(f"  skip {series_id:<16} (already present)")

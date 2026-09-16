@@ -25,11 +25,12 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
-from config import PROCESSED, ROOT
+from config import METRO_HPI_SERIES, PROCESSED, ROOT
 from features import (
     build_affordability,
     decompose_payment_change,
     decompose_sensitivity,
+    metro_price_growth,
 )
 
 pytestmark = pytest.mark.requires_data
@@ -77,6 +78,21 @@ def test_decomposition_sensitivity_matches_the_code(annual):
     _same(_committed("decomposition_sensitivity.csv", index_col="base_year"),
           decompose_sensitivity(build_affordability(annual)),
           "decomposition_sensitivity.csv")
+
+
+def test_metro_price_growth_matches_the_code(annual):
+    metros = _committed("metro_hpi_monthly.csv", index_col="date")
+    metros.index = pd.to_datetime(metros.index)
+    _same(_committed("metro_price_growth.csv", index_col="series_id"),
+          metro_price_growth(metros, annual["CPIAUCSL"]),
+          "metro_price_growth.csv")
+
+
+def test_metro_panel_covers_every_configured_metro():
+    """A metro dropped from config.py, or a download that never landed, would
+    otherwise just vanish from the ranking without anything saying so."""
+    metros = _committed("metro_hpi_monthly.csv", index_col="date")
+    assert list(metros.columns) == list(METRO_HPI_SERIES)
 
 
 # ------------------------------------------------------------------ web export

@@ -41,6 +41,37 @@ FRED_SERIES = {
     "CCLACBW027SBOG": ("Credit Card Loans, All Commercial Banks", "weekly", "usd_billions"),
 }
 
+# --- Regional home prices (also from FRED) ----------------------------------
+# The metro members of the S&P Cotality Case-Shiller 20-City Composite (formerly
+# S&P CoreLogic), not seasonally adjusted to match CSUSHPINSA above. Kept apart
+# from FRED_SERIES because these are a cross-section of one measure, not
+# national series for the monthly panel. The fixed 20-metro universe is the
+# point: the page ranks every member rather than picking the cities that fit
+# a story.
+# id -> metro name as the chart labels it
+METRO_HPI_SERIES = {
+    "ATXRNSA": "Atlanta",
+    "BOXRNSA": "Boston",
+    "CRXRNSA": "Charlotte",
+    "CHXRNSA": "Chicago",
+    "CEXRNSA": "Cleveland",
+    "DAXRNSA": "Dallas",
+    "DNXRNSA": "Denver",
+    "DEXRNSA": "Detroit",
+    "LVXRNSA": "Las Vegas",
+    "LXXRNSA": "Los Angeles",
+    "MIXRNSA": "Miami",
+    "MNXRNSA": "Minneapolis",
+    "NYXRNSA": "New York",
+    "PHXRNSA": "Phoenix",
+    "POXRNSA": "Portland",
+    "SDXRNSA": "San Diego",
+    "SFXRNSA": "San Francisco",
+    "SEXRNSA": "Seattle",
+    "TPXRNSA": "Tampa",
+    "WDXRNSA": "Washington, DC",
+}
+
 FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
 
 # --- Census Housing Vacancies and Homeownership Survey ---------------------
@@ -106,6 +137,10 @@ HOR_BASE_YEAR = 1994         # first year of Census HVS Table 19
 
 # Baseline year for the price-vs-rate counterfactual decomposition.
 DECOMP_BASE_YEAR = SHOCK_START_YEAR
+
+# Start of the regional price-growth window. It runs to the latest year every
+# metro has a full 12 months for, so a year-to-date average never sets a rank.
+METRO_GROWTH_BASE_YEAR = SHOCK_START_YEAR
 
 # Base years for the decomposition robustness check. Anchoring on 2021 -- the
 # all-time low in mortgage rates -- is the choice most favourable to a "rates

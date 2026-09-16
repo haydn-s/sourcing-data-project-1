@@ -70,6 +70,43 @@ def test_citation_block_lists_both_hvs_tables(flat):
                      flat), "the HVS citation does not name both tables"
 
 
+def test_page_credits_the_metro_price_source(flat):
+    """The regional chart draws on a second FRED family; the Sources section
+    must say so, or the chart looks like it came from nowhere."""
+    assert re.search(r"Case-Shiller 20-City Composite", flat), \
+        "the metro home price indices are charted but not credited"
+
+
+# -------------------------------------------------------------------- regional
+
+def _js_function(js, name):
+    m = re.search(rf"(?:async )?function {name}\(.*?\n}}\n", js, re.S)
+    assert m, f"main.js no longer defines {name}"
+    return m.group(0)
+
+
+def test_regional_chart_reads_the_pipeline_export_not_literals():
+    """The chart this replaced typed six city growth rates straight into
+    main.js, with no source and no window. Every value must now come from
+    web/data/regional_markets.json, which features.metro_price_growth writes."""
+    body = _js_function((WEB / "main.js").read_text(), "renderRegionalComparison")
+    assert "data/regional_markets.json" in body
+    assert not re.search(r"-?\d+\.\d+", body), \
+        "renderRegionalComparison contains a decimal literal — is data hardcoded again?"
+
+
+@pytest.mark.requires_data
+def test_regional_export_ranks_every_configured_metro():
+    from config import METRO_HPI_SERIES
+    path = WEB / "data" / "regional_markets.json"
+    if not path.exists():
+        pytest.skip("run `python src/run_all.py` first")
+    rows = next(ds["records"] for ds in json.loads(path.read_text())
+                if ds["name"] == "metro_price_growth.csv")
+    assert sorted(r["metro"] for r in rows) == sorted(METRO_HPI_SERIES.values())
+    assert [r["rank"] for r in rows] == list(range(1, len(rows) + 1))
+
+
 # -------------------------------------------------------------------- figures
 
 def test_stated_figure_count_matches_the_figures_shown(flat, page):

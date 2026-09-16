@@ -10,8 +10,11 @@ prices and rates into what a 25-34 year old household actually experiences:
   years_to_save_down    years to bank a 20% down payment
   price_effect /        counterfactual decomposition splitting the payment
   rate_effect           change into its price and interest-rate components
+  growth_pct /          home price growth in each Case-Shiller metro, nominal
+  real_growth_pct       and inflation-adjusted, for the regional comparison
 
-Writes data/processed/affordability.csv.
+Writes affordability.csv, payment_decomposition.csv,
+decomposition_sensitivity.csv and metro_price_growth.csv to data/processed/.
 """
 
 import sys
@@ -27,6 +30,8 @@ from config import (
     FRONT_END_DTI,
     LOAN_TERM_YEARS,
     MAINTENANCE_PCT,
+    METRO_GROWTH_BASE_YEAR,
+    METRO_HPI_SERIES,
     PROCESSED,
     REAL_DOLLAR_BASE_YEAR,
     SAVINGS_RATE,
@@ -292,6 +297,60 @@ def decompose_sensitivity(df: pd.DataFrame,
     return out
 
 
+def complete_metro_years(metros: pd.DataFrame) -> list[int]:
+    """Years in which every metro has all 12 monthly index values."""
+    counts = metros.notna().groupby(metros.index.year).sum()
+    return [int(y) for y in counts.index[(counts == 12).all(axis=1)]]
+
+
+def metro_price_growth(metros: pd.DataFrame, cpi: pd.Series,
+                       base_year: int = METRO_GROWTH_BASE_YEAR,
+                       end_year: int | None = None) -> pd.DataFrame:
+    """Home price growth in each Case-Shiller metro between two calendar years.
+
+    `metros` is the monthly frame from clean.build_metro_frame; `cpi` is annual
+    CPI-U indexed by year. Each year is the mean of its 12 monthly values, the
+    same collapse rule as the national panel, which also cancels the
+    seasonality in these not-seasonally-adjusted indices. Both years must be
+    complete for every metro -- a metro compared on fewer months than the
+    others would be ranked on a different window.
+
+    Nominal growth is the change a seller saw. Real growth deflates it by
+    national CPI, so a metro that only kept pace with inflation reads as zero.
+    One deflator applies to every metro, so it shifts the bars without
+    reordering them. Rows are sorted fastest to slowest in real terms.
+    """
+    complete = complete_metro_years(metros)
+    if end_year is None:
+        if not complete:
+            raise ValueError("no year with all 12 months for every metro")
+        end_year = max(complete)
+    for label, year in (("base", base_year), ("end", end_year)):
+        if year not in complete:
+            raise ValueError(f"{label} year {year} lacks 12 months for every metro")
+        if pd.isna(cpi.get(year)):
+            raise ValueError(f"{label} year {year} has no CPI to deflate by")
+
+    annual = metros.groupby(metros.index.year).mean()
+    start, end = annual.loc[base_year], annual.loc[end_year]
+    growth = (end / start - 1) * 100
+    inflation = cpi[end_year] / cpi[base_year]
+
+    out = pd.DataFrame({
+        "metro": [METRO_HPI_SERIES.get(sid, sid) for sid in annual.columns],
+        "base_year": base_year,
+        "end_year": end_year,
+        "index_base": start,
+        "index_end": end,
+        "growth_pct": growth,
+        "real_growth_pct": ((end / start) / inflation - 1) * 100,
+    }, index=annual.columns)
+    out.index.name = "series_id"
+    out = out.sort_values("real_growth_pct", ascending=False)
+    out["rank"] = range(1, len(out) + 1)
+    return out
+
+
 def main() -> int:
     panel_path = PROCESSED / "annual_panel.csv"
     if not panel_path.exists():
@@ -317,6 +376,18 @@ def main() -> int:
         flip = blames.ne(blames.shift()).cumsum().max() > 1
         print(f"  {label:<8} blames prices in {(blames == 'price').sum():>2}/{len(blames)} "
               f"anchors{'  (dominant factor FLIPS)' if flip else ''}")
+
+    metro_path = PROCESSED / "metro_hpi_monthly.csv"
+    if not metro_path.exists():
+        raise FileNotFoundError("run `python src/clean.py` first")
+    metros = pd.read_csv(metro_path, index_col="date", parse_dates=["date"])
+    growth = metro_price_growth(metros, annual["CPIAUCSL"])
+    growth.to_csv(PROCESSED / "metro_price_growth.csv")
+    top, bottom = growth.iloc[0], growth.iloc[-1]
+    print(f"metro_price_growth.csv {growth.shape[0]:>5} metros "
+          f"({int(top['base_year'])} -> {int(top['end_year'])}, real): "
+          f"{top['metro']} {top['real_growth_pct']:+.1f}% ... "
+          f"{bottom['metro']} {bottom['real_growth_pct']:+.1f}%")
     return 0
 
 

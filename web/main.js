@@ -399,36 +399,47 @@ function setStoryFigure(target) {
   }
 }
 
-function renderRegionalComparison() {
+/* Every Case-Shiller 20-City metro, ranked by real price growth over the window
+ * features.metro_price_growth chose. The ranking arrives sorted and the window
+ * arrives with it, so nothing about the comparison is decided here. */
+async function renderRegionalComparison() {
   const chartEl = document.getElementById('geo-trends-chart');
   if (!chartEl) return;
 
-  const data = [
-    { region: 'Austin', growth: 18.4 },
-    { region: 'Phoenix', growth: 15.2 },
-    { region: 'Miami', growth: 13.6 },
-    { region: 'Detroit', growth: -3.1 },
-    { region: 'Cleveland', growth: -5.7 },
-    { region: 'Pittsburgh', growth: -7.5 }
-  ];
+  const rows = findBundle(await fetchJson('data/regional_markets.json'), 'metro_price_growth.csv');
+  if (!rows.length) {
+    chartEl.classList.add('chart-empty');
+    chartEl.textContent = 'Regional data not present in the export — run python src/run_all.py';
+    return;
+  }
+
+  const {base_year: baseYear, end_year: endYear} = rows[0];
+  const windowLabel = document.getElementById('geo-trends-window');
+  if (windowLabel) windowLabel.textContent = `${baseYear}–${endYear}`;
 
   const trace = {
     type: 'bar',
-    x: data.map(d => d.region),
-    y: data.map(d => d.growth),
+    x: rows.map(d => d.metro),
+    y: rows.map(d => d.real_growth_pct),
+    customdata: rows.map(d => d.growth_pct),
     marker: {
-      color: data.map(d => d.growth >= 0 ? '#2b6cb0' : '#c1442e')
+      color: rows.map(d => d.real_growth_pct >= 0 ? COOL : '#c1442e')
     },
-    hovertemplate: '%{x}<br>Price trend: %{y:.1f}%<extra></extra>'
+    // No "+" in these formats: the Plotly build this page loads rejects a sign
+    // flag in hover templates and prints the raw float instead.
+    hovertemplate: `%{x}<br><b>%{y:.1f}%</b> after inflation<br>%{customdata:.1f}% before inflation (${baseYear}–${endYear})<extra></extra>`
   };
 
   const layout = {
-    margin: { t: 10, r: 10, b: 90, l: 50 },
+    margin: { t: 10, r: 10, b: 90, l: 64 },
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: '#1d2433', family: 'inherit' },
-    xaxis: { tickangle: -25 },
-    yaxis: { title: { text: 'Price growth (%)' } },
+    font: { color: INK, family: 'inherit' },
+    xaxis: { tickangle: -35, linecolor: GRID },
+    yaxis: {
+      title: { text: `Real price change, ${baseYear}–${endYear} (%)`, font: {size: 11, color: MUTED} },
+      ticksuffix: '%', gridcolor: GRID, zerolinecolor: MUTED
+    },
     showlegend: false
   };
 
@@ -452,7 +463,7 @@ function bindChartSelection() {
 
 window.addEventListener('DOMContentLoaded', () => {
   initTabs();
-  renderRegionalComparison();
+  renderRegionalComparison().catch(error => console.warn('could not render regional comparison', error));
   renderExplorer();
   renderStoryFigures().catch(error => console.warn('could not render story figures', error));
 });
