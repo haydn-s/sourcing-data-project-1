@@ -580,3 +580,60 @@ def test_result_homeownership_figures_match_the_data(page, aff):
     assert float(m.group(8)) == round(allages[latest], 1)
     assert float(m.group(9)) == round(allages[HOR_BASE_YEAR], 1)
     assert allages[latest] > allages[HOR_BASE_YEAR], "'above its base-year level' no longer holds"
+
+
+# ----------------------------------------------------------------- structure
+
+def test_page_is_one_document(page):
+    """The page once closed </body></html> twice, with the footer after the
+    first </html> and main.js loaded a second time, which threw "Identifier
+    'INK' has already been declared" on every load."""
+    assert page.count("</html>") == 1, "the document closes more than once"
+    assert len(re.findall(r'<script src="main\.js"', page)) == 1, "main.js is loaded more than once"
+    footer, main_end, body_end = page.find("<footer"), page.find("</main>"), page.find("</body>")
+    assert -1 < main_end < footer < body_end, "the footer is not between </main> and </body>"
+
+
+def test_nav_lists_every_section_in_page_order(page):
+    """The nav once ran Explore, Story, Forces while the page ran Explore,
+    Forces, Story, and left House Hacking out entirely."""
+    header = re.search(r"<nav[^>]*>.*?</nav>", page, re.S).group(0)
+    linked = re.findall(r'href="#([\w-]+)"', header)
+    sections = re.findall(r'<section id="([\w-]+)"', page)
+    assert linked == sections, f"nav {linked} does not match page order {sections}"
+
+
+def test_page_title_uses_the_site_name(page):
+    brand = re.search(r'class="brand"[^>]*>(.*?)</a>', page).group(1).replace("&nbsp;", " ")
+    title = re.search(r"<title>(.*?)</title>", page).group(1)
+    assert title.startswith(brand), f"tab title {title!r} does not carry the site name {brand!r}"
+
+
+def test_explorer_charts_every_fred_series_exactly_once(page):
+    """web/README.md promises every downloaded series, one chart each. Four FRED
+    series had no card while two others had a card in two tabs."""
+    explore = re.search(r'<section id="explore".*?</section>', page, re.S).group(0)
+    cards = re.findall(r'data-series="([^"]+)"', explore)
+    duplicated = sorted({c for c in cards if cards.count(c) > 1})
+    assert not duplicated, f"series charted more than once: {duplicated}"
+    missing = sorted(set(FRED_SERIES) - set(cards))
+    assert not missing, f"FRED series with no explorer card: {missing}"
+
+
+def test_page_explains_itself_when_the_data_cannot_load(page):
+    """Opened from disk, every chart's fetch() fails. The page used to show
+    empty boxes, and 27 explorer cards told the reader to re-run a pipeline
+    that had already run. A browser test is out of reach here, so this pins the
+    pieces the fallback depends on."""
+    assert re.search(r'<div id="data-warning"[^>]*\bhidden\b', page), \
+        "the data warning banner is missing or visible by default"
+    js = (WEB / "main.js").read_text()
+    assert "location.protocol === 'file:'" in js, "file:// no longer triggers the warning"
+    fallback = _js_function(js, "showStaticStoryFigures")
+    assert "noscript" in fallback, "the story no longer falls back to its PNGs"
+    story_catch = re.search(r"renderStoryFigures\(\)\.catch\(error => \{(.*?)\}\);", js, re.S)
+    assert story_catch and "showStaticStoryFigures()" in story_catch.group(1)
+    # Every story chart needs a PNG beside it for the fallback to show anything.
+    charts = re.findall(r'data-story-chart="(\d{2})"', page)
+    fallbacks = re.findall(r'<noscript><img src="\.\./figures/(\d{2})_', page)
+    assert charts == fallbacks

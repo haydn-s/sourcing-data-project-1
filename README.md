@@ -491,8 +491,9 @@ financial advice.
 ## Deliverables
 
 - **Podcast episode:** script and show notes (not yet in this repo)
-- **Story page:** [`web/`](web/) — the eight figures in narrative order, with an
-  interactive explorer for all 17 source series underneath. Serve from the repo
+- **Story page:** [`web/`](web/) — six of the eight figures as a narrative, a
+  regional comparison of 20 metros, and an interactive explorer for all 18
+  national FRED series underneath. Serve from the repo
   root (`python3 -m http.server 8000`, then `/web/`); see
   [`web/README.md`](web/README.md)
 - **GitHub repository:** this repo

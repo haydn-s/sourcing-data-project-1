@@ -3,25 +3,35 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Why Home Buying is Harder Now Than Before and How to Navigate It</title>
+  <title>Priced Out: Why Buying a First Home Got Harder, and How to Navigate It</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
 </head>
 <body>
 
 <header class="site-header">
-  <a class="brand" href="#top">Priced&nbsp;Out to Getting a Deal</a>
+  <a class="brand" href="#top">Priced&nbsp;Out</a>
   <nav class="site-nav">
+    <a href="#story">The Story</a>
+    <a href="#pillars">Four Forces</a>
+    <a href="#house-hack">House Hacking</a>
+    <a href="#takeaways">Action Plan</a>
     <a href="#explore">Explore the Data</a>
-    <a href="#story">The Rate &amp; Price Paradox</a>
-    <a href="#pillars">The 4 Forces</a>
-    <a href="#takeaways">Buyer Action Plan</a>
     <a href="#limits">Limitations</a>
     <a href="#sources">Sources</a>
     <a class="nav-repo" href="https://github.com/haydn-s/sourcing-data-project-1"
        target="_blank" rel="noopener">GitHub</a>
   </nav>
 </header>
+
+<div id="data-warning" class="banner" role="status" hidden>
+  <strong>The interactive charts couldn't load their data.</strong>
+  They fetch JSON from <code>web/data/</code>, which browsers block when the page is
+  opened straight from disk. From the project root, run
+  <code>python3 -m http.server 8000</code> and open
+  <code>http://localhost:8000/web/</code>. Until then, the story shows its figures as
+  static images, and the regional chart and data explorer stay empty.
+</div>
 
 <main id="top">
 
@@ -49,123 +59,10 @@
       </div>
 
       <p class="handoff">
-        The story, in six figures, shows how inflation, rates, debt, and supply constraints combined to make the market feel unaffordable even when the national price trend did not collapse.
+        The story, in six figures, follows four reasons buying a first home got harder (incomes, rates, qualifying, and saving) and what that did to homeownership among young adults.
       </p>
 
       <p class="byline">Natalie Zachariah &amp; Haydn Stucker · Duke University, Fall 2026</p>
-    </div>
-  </section>
-
-  <section id="explore" class="section section-alt">
-    <div class="wrap">
-      <h2 class="section-title">Step 1: Explore the Data &amp; Indicators</h2>
-      <p class="section-intro">
-        These charts trace the same story at the series level: mortgage rates, home prices, rent, debt, and the income a buyer needs to qualify. Eighteen series retrieved programmatically from FRED sit alongside the Census measures that capture household incomes and rents.
-      </p>
-
-      <div class="tabs" data-tabgroup="explore">
-        <button class="tab-btn is-active" data-tab="tab-housing">Housing market &amp; rates</button>
-        <button class="tab-btn" data-tab="tab-macro">Macro trends</button>
-        <button class="tab-btn" data-tab="tab-debt">Debt &amp; savings</button>
-      </div>
-
-      <div id="tab-housing" class="tab-panel is-active" data-tabgroup="explore">
-        <p class="section-intro">
-          <strong>Housing Market Indicators:</strong> mortgage rates rose sharply, but price discovery was limited by supply constraints. The result was a much larger monthly payment shock than the headline price change implies.
-        </p>
-        <div class="grid">
-          <div class="card" data-series="MSPUS"></div>
-          <div class="card" data-series="ASPUS"></div>
-          <div class="card" data-series="CSUSHPINSA"></div>
-          <div class="card" data-series="MORTGAGE30US"></div>
-          <div class="card" data-series="RHORUSQ156N"></div>
-          <div class="card" data-series="POPTHM"></div>
-          <div class="card" data-series="monthly_piti"></div>
-          <div class="card" data-series="monthly_ownership_cost"></div>
-        </div>
-      </div>
-
-      <div id="tab-macro" class="tab-panel" data-tabgroup="explore" hidden>
-        <p class="section-intro">
-          <strong>Macroeconomic Backdrop:</strong> inflation and rent growth ate away at the income a young household could save. These are the conditions that turn a mortgage into an affordability problem rather than a simple price problem.
-        </p>
-        <div class="grid">
-          <div class="card" data-series="CPIAUCSL"></div>
-          <div class="card" data-series="GDP"></div>
-          <div class="card" data-series="UNRATE"></div>
-          <div class="card" data-series="POPTHM"></div>
-          <div class="card" data-series="asking_rent"></div>
-          <div class="card" data-series="CUSR0000SEHA"></div>
-          <div class="card" data-series="MEHOINUSA646N"></div>
-          <div class="card" data-series="years_to_save_down"></div>
-        </div>
-      </div>
-
-      <div id="tab-debt" class="tab-panel" data-tabgroup="explore" hidden>
-        <p class="section-intro">
-          <strong>Debt Burden &amp; Qualifications:</strong> although incomes moved upward, debt service and other obligations made the qualifying bar harder to clear. The relevant question for a buyer is not only what a home costs, but whether the household can actually qualify for it.
-        </p>
-        <div class="grid">
-          <div class="card" data-series="SLOAS"></div>
-          <div class="card" data-series="CCLACBW027SBOG"></div>
-          <div class="card" data-series="MEHOINUSA672N"></div>
-          <div class="card" data-series="MEHOINUSA646N"></div>
-          <div class="card" data-series="consumer_debt_per_capita"></div>
-          <div class="card" data-series="required_income"></div>
-          <div class="card" data-series="affordability_index"></div>
-          <div class="card" data-series="rent_to_income"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="wrap" style="margin-top: 2rem;">
-      <div class="spotlight-controls">
-        <button class="spotlight-btn is-active" data-spotlight="inventory">Regional Distribution</button>
-      </div>
-
-      <div id="chart-selection-detail" class="chart-selection-detail" aria-live="polite">
-        <strong>Geographic Disparity Spotlight</strong>
-        <span>A national median hides how differently local markets moved. Compare home price growth across the 20 major metros in the Case-Shiller 20-City index below.</span>
-      </div>
-
-      <div id="spotlight-inventory" class="spotlight-panel is-active">
-        <div class="spotlight-visual">
-          <div class="insight-card">
-            <h3>Home Price Growth Across 20 Major Metros, <span id="geo-trends-window">2021–2025</span></h3>
-            <p>
-              Every metro in the S&amp;P Cotality Case-Shiller 20-City Composite, ranked by how much home prices changed after inflation. Blue bars outpaced inflation; red bars fell behind it. Hover a bar for the change before inflation.
-            </p>
-            <div id="geo-trends-chart" class="geo-trends-chart"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="pillars" class="section section-alt">
-    <div class="wrap">
-      <h2 class="section-title">Four Forces That Move House Prices</h2>
-      <p class="section-intro">
-        Before asking whether it is time to buy, start with the four forces that shape the price and the payment: location, housing markets and rates, macro trends, and debt and savings.
-      </p>
-      <div class="takeaway-grid">
-        <div class="takeaway-card">
-          <h3>1. Location</h3>
-          <p>Jobs, schools, transport, land, and local supply decide how much competition a buyer faces. A national average cannot tell you what a home costs in your city.</p>
-        </div>
-        <div class="takeaway-card">
-          <h3>2. Housing market &amp; rates</h3>
-          <p>Inventory sets bargaining power, while mortgage rates change the monthly cost of every dollar borrowed.</p>
-        </div>
-        <div class="takeaway-card">
-          <h3>3. Macro trends</h3>
-          <p>Inflation, employment, and Federal Reserve policy shape wages, borrowing costs, and how much money households have left after essentials.</p>
-        </div>
-        <div class="takeaway-card">
-          <h3>4. Debt &amp; savings</h3>
-          <p>Student loans, credit cards, rent, and the down payment all compete for the same paycheck and affect a lender's decision.</p>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -255,7 +152,42 @@
     </div>
   </section>
 
-  <section id="house-hack" class="section section-alt">
+  <section id="pillars" class="section section-alt">
+    <div class="wrap">
+      <h2 class="section-title">Four Forces That Move House Prices</h2>
+      <p class="section-intro">
+        Before asking whether it is time to buy, start with the four forces that shape the price and the payment: location, housing markets and rates, macro trends, and debt and savings.
+      </p>
+      <div class="takeaway-grid">
+        <div class="takeaway-card">
+          <h3>1. Location</h3>
+          <p>Jobs, schools, transport, land, and local supply decide how much competition a buyer faces. A national average cannot tell you what a home costs in your city.</p>
+        </div>
+        <div class="takeaway-card">
+          <h3>2. Housing market &amp; rates</h3>
+          <p>Inventory sets bargaining power, while mortgage rates change the monthly cost of every dollar borrowed.</p>
+        </div>
+        <div class="takeaway-card">
+          <h3>3. Macro trends</h3>
+          <p>Inflation, employment, and Federal Reserve policy shape wages, borrowing costs, and how much money households have left after essentials.</p>
+        </div>
+        <div class="takeaway-card">
+          <h3>4. Debt &amp; savings</h3>
+          <p>Student loans, credit cards, rent, and the down payment all compete for the same paycheck and affect a lender's decision.</p>
+        </div>
+      </div>
+
+      <div class="insight-card regional-card">
+        <h3>Home Price Growth Across 20 Major Metros, <span id="geo-trends-window">2021–2025</span></h3>
+        <p>
+          A national median hides how differently local markets moved. Every metro in the S&amp;P Cotality Case-Shiller 20-City Composite, ranked by how much home prices changed after inflation. Blue bars outpaced inflation; red bars fell behind it. Hover a bar for the change before inflation.
+        </p>
+        <div id="geo-trends-chart" class="geo-trends-chart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="house-hack" class="section">
     <div class="wrap">
       <h2 class="section-title">House Hacking: Offsetting Housing Cost With Rent</h2>
       <p class="section-intro">
@@ -324,7 +256,7 @@
     </div>
   </section>
 
-  <section id="takeaways" class="section takeaway-section">
+  <section id="takeaways" class="section section-alt">
     <div class="wrap">
       <h2 class="section-title">Takeaways &amp; Buyer Action Plan</h2>
       <p class="section-intro">
@@ -344,42 +276,44 @@
 
         <div class="takeaway-card">
           <h3>Summary: Renting, Owning, and House Hacking</h3>
-          <table class="data-matrix">
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th>Renter</th>
-                <th>Owner</th>
-                <th>House Hacker</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Monthly housing cost</td>
-                <td>Rent; builds no equity</td>
-                <td>Mortgage, taxes, insurance, upkeep; principal builds equity</td>
-                <td>Same as an owner, partly offset by tenants' rent</td>
-              </tr>
-              <tr>
-                <td>Lowest conventional down payment</td>
-                <td>None (a security deposit)</td>
-                <td>3% (1 unit, eligible buyers)</td>
-                <td>5% (2–4 units, living in one)</td>
-              </tr>
-              <tr>
-                <td>Tax treatment</td>
-                <td>No housing deductions</td>
-                <td>Mortgage interest and property taxes, if itemizing</td>
-                <td>Also rental expenses and depreciation on the rented part; depreciation is taxed at sale</td>
-              </tr>
-              <tr>
-                <td>Main risks</td>
-                <td>Rent increases; less left to save</td>
-                <td>Price declines, repairs, selling costs</td>
-                <td>An owner's risks, plus vacancy, unpaid rent, landlord duties, and more leverage</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="data-matrix">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Renter</th>
+                  <th>Owner</th>
+                  <th>House Hacker</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Monthly housing cost</td>
+                  <td>Rent; builds no equity</td>
+                  <td>Mortgage, taxes, insurance, upkeep; principal builds equity</td>
+                  <td>Same as an owner, partly offset by tenants' rent</td>
+                </tr>
+                <tr>
+                  <td>Lowest conventional down payment</td>
+                  <td>None (a security deposit)</td>
+                  <td>3% (1 unit, eligible buyers)</td>
+                  <td>5% (2–4 units, living in one)</td>
+                </tr>
+                <tr>
+                  <td>Tax treatment</td>
+                  <td>No housing deductions</td>
+                  <td>Mortgage interest and property taxes, if itemizing</td>
+                  <td>Also rental expenses and depreciation on the rented part; depreciation is taxed at sale</td>
+                </tr>
+                <tr>
+                  <td>Main risks</td>
+                  <td>Rent increases; less left to save</td>
+                  <td>Price declines, repairs, selling costs</td>
+                  <td>An owner's risks, plus vacancy, unpaid rent, landlord duties, and more leverage</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <p class="matrix-summary">House hacking can lower the net cost of owning and let a buyer start with less cash, but it adds leverage and landlord risk. Whether it pays off depends on local rents, vacancy, the price paid, and the buyer's finances.</p>
         </div>
       </div>
@@ -416,7 +350,79 @@
     </div>
   </section>
 
-  <section id="limits" class="section">
+  <section id="explore" class="section">
+    <div class="wrap">
+      <h2 class="section-title">Explore the Source Data</h2>
+      <p class="section-intro">
+        These charts trace the same story at the series level: mortgage rates, home prices, rent, debt, and the income a buyer needs to qualify. Eighteen series retrieved programmatically from FRED sit alongside the Census measures that capture household incomes and rents.
+      </p>
+
+      <div class="tabs" data-tabgroup="explore">
+        <button class="tab-btn is-active" data-tab="tab-housing">Housing market &amp; rates</button>
+        <button class="tab-btn" data-tab="tab-macro">Macro trends</button>
+        <button class="tab-btn" data-tab="tab-debt">Debt &amp; savings</button>
+      </div>
+
+      <div id="chart-selection-detail" class="chart-selection-detail" aria-live="polite">
+        <strong>Selected value</strong>
+        <span>Click any point on a chart below to pin its exact value here.</span>
+      </div>
+
+      <div id="tab-housing" class="tab-panel is-active" data-tabgroup="explore">
+        <p class="section-intro">
+          <strong>Housing Market Indicators:</strong> mortgage rates rose sharply, but price discovery was limited by supply constraints. The result was a much larger monthly payment shock than the headline price change implies.
+        </p>
+        <div class="grid">
+          <div class="card" data-series="MSPUS"></div>
+          <div class="card" data-series="ASPUS"></div>
+          <div class="card" data-series="CSUSHPINSA"></div>
+          <div class="card" data-series="MORTGAGE30US"></div>
+          <div class="card" data-series="DGS10"></div>
+          <div class="card" data-series="DGS30"></div>
+          <div class="card" data-series="PRIME"></div>
+          <div class="card" data-series="RHORUSQ156N"></div>
+          <div class="card" data-series="hor_under_35"></div>
+          <div class="card" data-series="monthly_piti"></div>
+          <div class="card" data-series="monthly_ownership_cost"></div>
+        </div>
+      </div>
+
+      <div id="tab-macro" class="tab-panel" data-tabgroup="explore" hidden>
+        <p class="section-intro">
+          <strong>Macroeconomic Backdrop:</strong> inflation and rent growth ate away at the income a young household could save. These are the conditions that turn a mortgage into an affordability problem rather than a simple price problem.
+        </p>
+        <div class="grid">
+          <div class="card" data-series="CPIAUCSL"></div>
+          <div class="card" data-series="GDP"></div>
+          <div class="card" data-series="UNRATE"></div>
+          <div class="card" data-series="POPTHM"></div>
+          <div class="card" data-series="G160651A027NBEA"></div>
+          <div class="card" data-series="asking_rent"></div>
+          <div class="card" data-series="CUSR0000SEHA"></div>
+          <div class="card" data-series="years_to_save_down"></div>
+        </div>
+      </div>
+
+      <div id="tab-debt" class="tab-panel" data-tabgroup="explore" hidden>
+        <p class="section-intro">
+          <strong>Debt Burden &amp; Qualifications:</strong> although incomes moved upward, debt service and other obligations made the qualifying bar harder to clear. The relevant question for a buyer is not only what a home costs, but whether the household can actually qualify for it.
+        </p>
+        <div class="grid">
+          <div class="card" data-series="SLOAS"></div>
+          <div class="card" data-series="CCLACBW027SBOG"></div>
+          <div class="card" data-series="MEHOINUSA672N"></div>
+          <div class="card" data-series="MEHOINUSA646N"></div>
+          <div class="card" data-series="consumer_debt_per_capita"></div>
+          <div class="card" data-series="required_income"></div>
+          <div class="card" data-series="affordability_index"></div>
+          <div class="card" data-series="rent_to_income"></div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <section id="limits" class="section section-alt">
     <div class="wrap">
       <h2 class="section-title">Limitations, Bias &amp; Ethical Considerations</h2>
       <p class="section-intro">
@@ -455,14 +461,14 @@
     </div>
   </section>
 
-  <section id="sources" class="section section-alt">
+  <section id="sources" class="section">
     <div class="wrap">
       <h2 class="section-title">Sources</h2>
       <div class="sources-grid">
         <div>
           <h3>Federal Reserve Economic Data (FRED)</h3>
           <p>
-            Data were retrieved programmatically from FRED with the Federal Reserve Bank of St. Louis, covering mortgage rates, inflation, home price benchmarks, household income, debt, and rents. Eighteen series were retrieved programmatically.
+            Eighteen national series, covering mortgage rates, inflation, home prices, household income, debt, and rents, were downloaded programmatically from FRED, the Federal Reserve Bank of St. Louis's economic database.
           </p>
           <p>
             The regional comparison adds the home price index for each of the 20 metros in the S&amp;P Cotality Case-Shiller 20-City Composite (not seasonally adjusted), downloaded from FRED the same way.
@@ -475,7 +481,11 @@
         <div>
           <h3>U.S. Census Bureau</h3>
           <p>
-            Housing Vacancies and Homeownership (HVS), Table 19 and Table 11A, plus Current Population Survey Annual Social and Economic Supplement (CPS ASEC) Table H-10. These series underwrite the age-specific income, rent, and homeownership measures used in the story. The HVS citation is Housing Vacancies and Homeownership, Tables 19 and 11A.
+            Three workbooks supply the age-specific measures in the story: Housing Vacancies and Homeownership (HVS) Table 19 (homeownership by age), HVS Table 11A (median asking rent), and CPS ASEC Table H-10 (household income by age).
+          </p>
+          <p class="cite">
+            U.S. Census Bureau, <em>Housing Vacancies and Homeownership</em>, Tables 19 and 11A; <em>Current Population Survey, Annual Social and Economic Supplement</em>, Historical Income Table H-10.
+            <a href="https://www.census.gov/housing/hvs/data/histtabs.html" target="_blank" rel="noopener">census.gov</a>.
           </p>
         </div>
         <div>
@@ -505,12 +515,6 @@ python src/run_all.py</code></pre>
       </div>
     </div>
   </section>
-
-</main>
-
-<script src="main.js"></script>
-</body>
-</html>
 
 </main>
 

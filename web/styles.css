@@ -74,7 +74,8 @@ a { color: var(--cool); }
 
 /* ---------------------------------------------------------------- banner -- */
 .banner {
-  margin: 1rem auto; max-width: 1080px;
+  /* Same measure as .wrap, with a gutter so it never touches the screen edge. */
+  margin: 1rem auto; max-width: min(1080px, calc(100% - 3rem));
   padding: 0.85rem 1.1rem;
   background: #fff8e6; border-left: 4px solid #e0a416; border-radius: 0 6px 6px 0;
   font-size: 0.92rem;
@@ -158,23 +159,18 @@ a { color: var(--cool); }
 }
 
 /* ------------------------------------------------------------------ tabs -- */
-.spotlight-controls,
 .tabs,
 .story-figure-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
-.spotlight-btn,
 .tab-btn,
 .story-figure-btn {
   padding: 0.6rem 0.95rem; border: 1px solid var(--grid); border-radius: 999px;
   background: #fff; color: var(--ink-soft); font: inherit; font-size: 0.9rem;
   cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s;
 }
-.spotlight-btn:hover,
 .tab-btn:hover,
 .story-figure-btn:hover { border-color: var(--cool); color: var(--ink); transform: translateY(-1px); }
-.spotlight-btn.is-active,
 .tab-btn.is-active,
 .story-figure-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
-.spotlight-panel[hidden],
 .tab-panel[hidden],
 .story-figure-panel[hidden] { display: none; }
 
@@ -224,18 +220,12 @@ a { color: var(--cool); }
   margin-top: 0.9rem; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5;
 }
 
-.spotlight-panel {
-  margin-bottom: 1.5rem; padding: 1.25rem 1.35rem; border: 1px solid var(--grid); border-radius: var(--radius);
-  background: linear-gradient(135deg, rgba(43,108,176,0.05), rgba(193,68,46,0.03));
-}
-
 .chart-selection-detail {
   margin-bottom: 1rem; padding: 0.8rem 1rem; border: 1px solid rgba(43,108,176,0.2);
   border-left: 4px solid var(--cool); border-radius: 8px; background: rgba(43,108,176,0.04);
   color: var(--ink-soft); display: flex; flex-direction: column; gap: 0.2rem;
 }
 
-.spotlight-visual { margin-top: 0; }
 .insight-card {
   background: #fff; border: 1px solid var(--grid); border-radius: var(--radius); padding: 1.25rem;
 }
@@ -243,11 +233,10 @@ a { color: var(--cool); }
 .insight-card p,
 .insight-card li { color: var(--ink-soft); }
 .insight-card ul { margin: 0.75rem 0 0; padding-left: 1.2rem; }
+/* The regional chart sits under the four forces cards, illustrating Location. */
+.regional-card { margin-top: 1.5rem; }
 .geo-trends-chart { margin-top: 1rem; min-height: 320px; }
 
-.takeaway-section {
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-}
 .takeaway-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 1rem;
 }
@@ -266,6 +255,10 @@ a { color: var(--cool); }
 }
 .takeaway-card li + li { margin-top: 0.45rem; }
 
+/* A four-column table needs ~420px; the card it sits in can be 260px. It
+   scrolls inside the card rather than widening the whole page on a phone. */
+.table-scroll { overflow-x: auto; }
+.takeaway-card { min-width: 0; }
 .data-matrix {
   width: 100%;
   border-collapse: collapse;

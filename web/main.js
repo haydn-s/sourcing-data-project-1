@@ -90,10 +90,12 @@ function toNumber(v) {
  * in more than one bundle, keep whichever version carries more observations. */
 async function loadAllData() {
   const all = {};
+  let loaded = 0;
   for (const path of DATA_FILES) {
     let bundles;
     try {
       bundles = await fetchJson(path);
+      loaded++;
     } catch (e) {
       console.warn('could not load', path, e);
       continue;
@@ -117,10 +119,13 @@ async function loadAllData() {
       }
     }
   }
+  // Nothing fetched is a different failure from a series missing in the export,
+  // and each card would otherwise tell the reader to re-run the pipeline.
+  if (!loaded) throw new Error('none of the explorer data files could be loaded');
   return all;
 }
 
-function renderCard(card, series, key) {
+function renderCard(card, series, key, emptyMessage = 'Series not present in the exported data — run python src/run_all.py') {
   const meta = SERIES_META[key] || {label: key, unit: '', note: ''};
   card.innerHTML = `
     <h3>${meta.label}</h3>
@@ -132,7 +137,7 @@ function renderCard(card, series, key) {
 
   if (!series) {
     chart.classList.add('chart-empty');
-    chart.textContent = 'Series not present in the exported data — run python src/run_all.py';
+    chart.textContent = emptyMessage;
     return;
   }
 
@@ -179,7 +184,15 @@ function renderCard(card, series, key) {
 async function renderExplorer() {
   const cards = document.querySelectorAll('.card[data-series]');
   if (!cards.length) return;
-  const seriesMap = await loadAllData();
+  let seriesMap;
+  try {
+    seriesMap = await loadAllData();
+  } catch (error) {
+    console.warn(error);
+    showDataWarning();
+    cards.forEach(card => renderCard(card, null, card.getAttribute('data-series'), DATA_UNAVAILABLE));
+    return;
+  }
   cards.forEach(card => {
     const key = card.getAttribute('data-series');
     renderCard(card, seriesMap[key], key);
@@ -365,23 +378,6 @@ function initTabs() {
     });
   });
 
-  document.querySelectorAll('.spotlight-btn[data-spotlight]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const target = btn.dataset.spotlight;
-      document.querySelectorAll('.spotlight-btn[data-spotlight]').forEach(b => {
-        b.classList.toggle('is-active', b === btn);
-      });
-      document.querySelectorAll('.spotlight-panel').forEach(panel => {
-        const show = panel.id === `spotlight-${target}`;
-        panel.hidden = !show;
-        panel.classList.toggle('is-active', show);
-        if (show) {
-          panel.querySelectorAll('.chart').forEach(el => Plotly.Plots.resize(el));
-        }
-      });
-    });
-  });
-
   document.querySelectorAll('.story-figure-btn[data-storyfig]').forEach(btn => {
     btn.addEventListener('click', () => {
       setStoryFigure(btn.dataset.storyfig);
@@ -490,9 +486,45 @@ function bindChartSelection() {
   });
 }
 
+/* ------------------------------------------------ when the data cannot load
+ * Every chart on the page fetches web/data/*.json. Browsers refuse fetch() on
+ * file:// URLs, and a server rooted at web/ 404s the requests, so a reader who
+ * opens the page the wrong way gets told how to fix it instead of empty boxes. */
+const DATA_UNAVAILABLE = 'Data could not load. See the notice at the top of the page.';
+
+function showDataWarning() {
+  const banner = document.getElementById('data-warning');
+  if (banner) banner.hidden = false;
+}
+
+/* Each story chart has its PNG in a <noscript> beside it. With scripting on,
+ * that markup is inert text, so parse it and put the image where the chart
+ * would have been: the story still reads without the data. */
+function showStaticStoryFigures() {
+  document.querySelectorAll('.story-chart[data-story-chart]').forEach(chart => {
+    const markup = chart.parentElement.querySelector('noscript')?.textContent;
+    const img = markup && new DOMParser().parseFromString(markup, 'text/html').querySelector('img');
+    if (img) chart.replaceWith(img);
+  });
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  // No need to wait for the fetches to fail: file:// never works.
+  if (location.protocol === 'file:') showDataWarning();
   initTabs();
-  renderRegionalComparison().catch(error => console.warn('could not render regional comparison', error));
+  renderRegionalComparison().catch(error => {
+    console.warn('could not render regional comparison', error);
+    showDataWarning();
+    const chart = document.getElementById('geo-trends-chart');
+    if (chart) {
+      chart.classList.add('chart-empty');
+      chart.textContent = DATA_UNAVAILABLE;
+    }
+  });
   renderExplorer();
-  renderStoryFigures().catch(error => console.warn('could not render story figures', error));
+  renderStoryFigures().catch(error => {
+    console.warn('could not render story figures', error);
+    showDataWarning();
+    showStaticStoryFigures();
+  });
 });
