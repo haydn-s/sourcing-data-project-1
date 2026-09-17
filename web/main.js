@@ -15,11 +15,13 @@ const INK = '#1d2433';
 const COOL = '#2b6cb0';
 const MUTED = '#8a94a6';
 const GRID = '#dfe3ea';
+const ACCENT = '#c1442e';
 
 /* Narrative years shared with src/config.py. tests/test_web_page.py fails if
  * these drift from the config, so the page and the PNGs cannot disagree. */
 const INDEX_BASE_YEAR = 2005;
 const SHOCK_START_YEAR = 2021;
+const SHOCK_END_YEAR = 2023;
 const HOR_BASE_YEAR = 1994;
 
 /* Every series the explorer can draw: a human label, the unit for the y-axis,
@@ -42,6 +44,10 @@ const SERIES_META = {
   CPIAUCSL:        {label: 'Consumer Price Index (CPI-U)', unit: 'Index, 1982-84 = 100', note: 'Used to deflate to constant dollars — the adjustment that moves the crossover in figure 4 by eight years.'},
   UNRATE:          {label: 'Unemployment Rate', unit: 'Percent', note: 'Job-market strength underwrites both demand and the ability to keep paying.'},
   POPTHM:          {label: 'U.S. Population', unit: 'Thousands', note: 'The denominator for the per-capita debt measures.'},
+  ACTLISCOUUS:     {label: 'Active Listings (Realtor.com)', unit: 'Listings', note: 'Homes listed for sale nationally, mostly existing homes. Monthly from July 2016.'},
+  RHVRUSQ156N:     {label: 'Homeowner Vacancy Rate', unit: 'Percent', note: 'Share of the homeowner inventory standing vacant and for sale. Census HVS, back to 1956.'},
+  HOUST1F:         {label: 'Single-Family Housing Starts', unit: 'Thousands of units, annual rate', note: 'New single-family homes begun each month: the construction response to demand.'},
+  MSACSR:          {label: "Months' Supply of New Houses", unit: 'Months', note: 'New homes for sale divided by the current monthly sales pace.'},
   G160651A027NBEA: {label: 'Federal Outlays: Housing &amp; Urban Development', unit: 'Billions of dollars', note: 'Federal spending on housing programmes.'},
   CUSR0000SEHA:    {label: 'CPI: Rent of Primary Residence', unit: 'Index, 1982-84 = 100', note: 'Contract rent — what a sitting tenant pays, including renewals. The counterpart to asking rent below.'},
   asking_rent:     {label: 'Median Asking Rent', unit: 'Dollars per month', note: 'Census HVS Table 11A: rent on vacant units, i.e. what a mover faces. Rose 62% in real terms since 1988.'},
@@ -471,6 +477,67 @@ async function renderRegionalComparison() {
   Plotly.newPlot(chartEl, [trace], layout, { responsive: true, displayModeBar: false });
 }
 
+/* Four stacked panels, one measure and one axis each, sharing a date axis so
+ * the 2021-2023 shading lines up. The top two are the existing stock for sale,
+ * the bottom two the construction response; in the shock they moved in
+ * opposite directions, which is the point of showing them together. */
+const SUPPLY_START_YEAR = 2000;
+
+async function renderSupplyChart() {
+  const chartEl = document.getElementById('supply-chart');
+  if (!chartEl) return;
+
+  const rows = findBundle(await fetchJson('data/macro_trends.json'), 'fred_monthly.csv')
+    .filter(row => row.date >= `${SUPPLY_START_YEAR}-01-01`);
+  const panels = [
+    {id: 'ACTLISCOUUS', title: 'Homes listed for sale (thousands, Realtor.com, from July 2016)', scale: 1 / 1000, color: ACCENT, format: ',.0f'},
+    {id: 'RHVRUSQ156N', title: 'Homeowner vacancy rate (%)', scale: 1, color: ACCENT, format: '.1f'},
+    {id: 'HOUST1F', title: 'Single-family housing starts (thousands, annual rate)', scale: 1, color: COOL, format: ',.0f'},
+    {id: 'MSACSR', title: "Months' supply of new homes for sale", scale: 1, color: COOL, format: '.1f'}
+  ];
+  if (!rows.length || !panels.every(panel => rows.some(row => row[panel.id] != null))) {
+    chartEl.classList.add('chart-empty');
+    chartEl.textContent = 'Supply series not present in the exported data — run python src/run_all.py';
+    return;
+  }
+
+  const gap = 0.07;
+  const height = (1 - gap * (panels.length - 1)) / panels.length;
+  const layout = {
+    height: 680,
+    margin: {t: 26, r: 18, b: 40, l: 64},
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: {color: INK, size: 11, family: getComputedStyle(document.body).fontFamily},
+    showlegend: false,
+    hoverlabel: {bgcolor: '#ffffff', bordercolor: GRID, font: {color: INK}},
+    xaxis: {type: 'date', anchor: `y${panels.length}`, gridcolor: GRID, linecolor: GRID, automargin: true},
+    shapes: [{type: 'rect', xref: 'x', yref: 'paper', layer: 'below', line: {width: 0},
+      x0: `${SHOCK_START_YEAR}-01-01`, x1: `${SHOCK_END_YEAR}-12-31`, y0: 0, y1: 1,
+      fillcolor: 'rgba(193,68,46,0.07)'}],
+    annotations: []
+  };
+
+  const traces = panels.map((panel, i) => {
+    const top = 1 - i * (height + gap);
+    const axis = i === 0 ? 'yaxis' : `yaxis${i + 1}`;
+    layout[axis] = {domain: [top - height, top], gridcolor: GRID, zeroline: false, linecolor: GRID, automargin: true};
+    layout.annotations.push({text: `<b>${panel.title}</b>`, xref: 'paper', yref: 'paper', x: 0, y: top,
+      xanchor: 'left', yanchor: 'bottom', showarrow: false, font: {size: 11, color: INK}});
+    const points = rows.filter(row => row[panel.id] != null);
+    return {
+      x: points.map(row => row.date),
+      y: points.map(row => row[panel.id] * panel.scale),
+      yaxis: i === 0 ? 'y' : `y${i + 1}`,
+      mode: 'lines',
+      line: {color: panel.color, width: 2},
+      hovertemplate: `%{x|%b %Y}<br><b>%{y:${panel.format}}</b><extra></extra>`
+    };
+  });
+
+  Plotly.newPlot(chartEl, traces, layout, {responsive: true, displayModeBar: false});
+}
+
 function bindChartSelection() {
   document.querySelectorAll('.card[data-series]').forEach(card => {
     const chartEl = card.querySelector('.chart');
@@ -522,6 +589,15 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   renderExplorer();
+  renderSupplyChart().catch(error => {
+    console.warn('could not render supply chart', error);
+    showDataWarning();
+    const chart = document.getElementById('supply-chart');
+    if (chart) {
+      chart.classList.add('chart-empty');
+      chart.textContent = DATA_UNAVAILABLE;
+    }
+  });
   renderStoryFigures().catch(error => {
     console.warn('could not render story figures', error);
     showDataWarning();

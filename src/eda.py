@@ -601,6 +601,26 @@ def print_findings(df, decomp, sens):
     print("=" * 72)
 
 
+def print_supply_findings(monthly):
+    """The supply check behind the page's claims: scarce homes for sale, but not
+    a missing construction response."""
+    from features import supply_summary
+    s = supply_summary(monthly)
+    start, end = SHOCK_START_YEAR, SHOCK_END_YEAR
+    print(f"\nSUPPLY CHECK ({start} -> {end})")
+    print(f"   active listings, {start}-{end} avg vs pre-pandemic avg:"
+          f"  {s['listings_shock_mean'] / 1000:,.0f}k vs {s['listings_baseline_mean'] / 1000:,.0f}k"
+          f"  ({s['listings_ratio'] * 100:.0f}%)")
+    print(f"   homeowner vacancy rate: {s['vacancy_low']:.2f}% in {s['vacancy_low_year']},"
+          f" lowest since the series began in {s['vacancy_first_year']}")
+    print(f"   single-family starts: {s['starts_peak']:,.0f}k in {s['starts_peak_year']},"
+          f" most since {s['starts_last_higher_year']}")
+    print(f"   months' supply of new homes: {s['new_home_supply_start']:.1f} ({start})"
+          f" -> {s['new_home_supply_end']:.1f} ({end})")
+    print("   Existing homes for sale were scarce; construction did respond.")
+    print("=" * 72)
+
+
 def main() -> int:
     df = pd.read_csv(PROCESSED / "affordability.csv", index_col="year")
     decomp = pd.read_csv(PROCESSED / "payment_decomposition.csv", index_col="year")
@@ -617,6 +637,8 @@ def main() -> int:
     fig_rent_vs_own(df)
 
     print_findings(df, decomp, sens)
+    monthly = pd.read_csv(PROCESSED / "fred_monthly.csv", index_col="date", parse_dates=["date"])
+    print_supply_findings(monthly)
     return 0
 
 

@@ -26,6 +26,14 @@ FRED_SERIES = {
     # the Census asking-rent series below, which is what a *mover* faces.
     "CUSR0000SEHA": ("CPI: Rent of Primary Residence, SA", "monthly", "index"),
     "G160651A027NBEA": ("Federal HUD Outlays", "annual", "usd_billions"),
+    # Supply: whether there were homes to buy. Listings and the vacancy rate
+    # measure the existing stock for sale; starts and the months' supply of new
+    # homes measure the construction response. The story needs both, because in
+    # 2021-2023 they moved in opposite directions.
+    "ACTLISCOUUS":  ("Active Listing Count (Realtor.com)", "monthly", "count"),
+    "RHVRUSQ156N":  ("Homeowner Vacancy Rate", "quarterly", "percent"),
+    "HOUST1F":      ("Single-Family Housing Starts, SAAR", "monthly", "thousands"),
+    "MSACSR":       ("Monthly Supply of New Houses", "monthly", "months"),
     # Macro backdrop
     "PRIME":        ("Bank Prime Loan Rate", "irregular", "percent"),
     "DGS10":        ("10-Year Treasury Constant Maturity", "daily", "percent"),
@@ -141,6 +149,10 @@ DECOMP_BASE_YEAR = SHOCK_START_YEAR
 # Start of the regional price-growth window. It runs to the latest year every
 # metro has a full 12 months for, so a year-to-date average never sets a rank.
 METRO_GROWTH_BASE_YEAR = SHOCK_START_YEAR
+
+# Pre-pandemic baseline for the supply check. Active listings (ACTLISCOUUS) only
+# start in July 2016, so 2017-2019 are the full years available before COVID.
+SUPPLY_BASELINE_YEARS = (2017, 2019)
 
 # Base years for the decomposition robustness check. Anchoring on 2021 -- the
 # all-time low in mortgage rates -- is the choice most favourable to a "rates

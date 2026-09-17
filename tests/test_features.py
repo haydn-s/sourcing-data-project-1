@@ -17,7 +17,9 @@ from features import (
     decompose_payment_change,
     decompose_sensitivity,
     latest_complete_year,
+    complete_year_means,
     metro_price_growth,
+    supply_summary,
     monthly_payment,
     piti,
 )
@@ -358,3 +360,42 @@ def test_metro_growth_rejects_a_year_with_no_cpi(cpi):
     metros = _metro_frame({"AAA": {2021: 100.0, 2025: 130.0}})
     with pytest.raises(ValueError, match="no CPI"):
         metro_price_growth(metros, cpi.drop(2025), base_year=2021, end_year=2025)
+
+
+# ----------------------------------------------------------------- supply check
+
+def _monthly(values_by_year):
+    """Monthly series from per-year levels; a list supplies the months directly."""
+    points = {}
+    for year, level in values_by_year.items():
+        months = level if isinstance(level, list) else [level] * 12
+        for m, v in enumerate(months, start=1):
+            points[pd.Timestamp(year=year, month=m, day=1)] = v
+    return pd.Series(points, dtype=float)
+
+
+def test_complete_year_means_drop_short_years():
+    s = _monthly({2020: 10.0, 2021: [20.0] * 11 + [np.nan]})
+    out = complete_year_means(s)
+    assert list(out.index) == [2020]
+    assert out[2020] == pytest.approx(10.0)
+
+
+def test_supply_summary_reads_both_halves_of_the_claim():
+    years = range(2004, 2024)
+    starts = {y: 1000.0 for y in years}
+    starts.update({2005: 1500.0, 2006: 1300.0, 2021: 1200.0, 2022: 1100.0})
+    monthly = pd.DataFrame({
+        "ACTLISCOUUS": _monthly({**{y: 1000.0 for y in (2017, 2018, 2019)},
+                                 **{y: 500.0 for y in (2021, 2022, 2023)}}),
+        "RHVRUSQ156N": _monthly({**{y: 2.0 for y in years}, 2023: 0.8}),
+        "HOUST1F": _monthly(starts),
+        "MSACSR": _monthly({2021: 5.0, 2023: 8.0}),
+    })
+    s = supply_summary(monthly, shock=(2021, 2023), baseline=(2017, 2019))
+    assert s["listings_ratio"] == pytest.approx(0.5)
+    assert (s["vacancy_first_year"], s["vacancy_low_year"]) == (2004, 2023)
+    # 2021 beats every year back to 2006, which is itself higher: "most since 2006".
+    assert (s["starts_peak_year"], s["starts_last_higher_year"]) == (2021, 2006)
+    assert s["starts_highest_since_peak"] == pytest.approx(1100.0)
+    assert (s["new_home_supply_start"], s["new_home_supply_end"]) == (5.0, 8.0)

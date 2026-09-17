@@ -152,9 +152,15 @@ Retrieved via `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES_ID>`.
 | `PRIME` | Bank Prime Loan Rate | Irregular |
 | `DGS10` / `DGS30` | 10- and 30-Year Treasury Constant Maturity Rate | Daily |
 | `G160651A027NBEA` | Federal Outlays: Housing and Urban Development | Annual |
+| `ACTLISCOUUS` | Housing Inventory: Active Listing Count (Realtor.com) | Monthly, from July 2016 |
+| `RHVRUSQ156N` | Homeowner Vacancy Rate (Census HVS) | Quarterly |
+| `HOUST1F` | New Privately-Owned Housing Units Started: Single-Family Units | Monthly |
+| `MSACSR` | Monthly Supply of New Houses | Monthly |
 
 > Federal Reserve Bank of St. Louis, *FRED Economic Data*.
-> https://fred.stlouisfed.org/ (retrieved August 2026).
+> https://fred.stlouisfed.org/ (retrieved August 2026; the four supply series
+> September 2026). `ACTLISCOUUS` is Realtor.com Economic Research data published
+> through FRED.
 
 #### Regional home prices: S&P Cotality Case-Shiller 20-City metros
 
@@ -336,7 +342,7 @@ No network required — the suite runs against the committed CSVs. Six groups:
 | [`tests/test_clean.py`](tests/test_clean.py) | The three Census workbook parsers, against miniature fixtures that reproduce the real quirks — dot-leader quarter labels, footnote markers glued to years, duplicate years, and the two column-header rows. Also asserts each parser *fails loudly* when its assumed layout is gone |
 | [`tests/test_readme_claims.py`](tests/test_readme_claims.py) | Every number in this README, read back out of the markdown by regex and compared to `data/processed/`. Edit a figure in one place and not the other and this fails, naming the claim |
 | [`tests/test_eda.py`](tests/test_eda.py) | The partial-year footnote helper, plus smoke tests that every figure renders and `print_findings` runs |
-| [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown, every explorer card resolves to an exported series, the regional chart reads the exported ranking rather than numbers typed into `main.js`, the headline's price and payment claims hold, and every number in the house hacking section matches the data or the amortisation schedule |
+| [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown, every explorer card resolves to an exported series, the regional chart reads the exported ranking rather than numbers typed into `main.js`, the supply, debt and income-test claims match the data, the headline's price and payment claims hold, and every number in the house hacking section matches the data or the amortisation schedule |
 | [`tests/test_reproducibility.py`](tests/test_reproducibility.py) | That the committed CSVs are what the committed code produces. Compared numerically at a 1e-9 relative tolerance, not byte-for-byte: `piti()` raises `(1+r)` to the 360th power, and the last bit of `pow` differs between an arm64 laptop and an x86-64 CI runner |
 
 `pytest -m "not requires_data"` skips the group that needs a pipeline run.
@@ -349,12 +355,12 @@ are cleaned sources; the last five are the analysis.
 
 | File | Shape | What it holds |
 |---|---|---|
-| `fred_monthly.csv` | 956 × 19 | Every FRED series on a shared monthly index |
+| `fred_monthly.csv` | 956 × 23 | Every FRED series on a shared monthly index |
 | `metro_hpi_monthly.csv` | 474 × 21 | The 20 Case-Shiller metro indices, monthly, not forward-filled |
 | `homeownership_age.csv` | 130 × 9 | HVS Table 19, quarterly, by age of householder |
 | `asking_rent.csv` | 154 × 5 | HVS Table 11A, quarterly median asking rent |
 | `income_by_age.csv` | 58 × 9 | CPS H-10, median income by age of householder |
-| `annual_panel.csv` | 43 × 36 | The calendar-year panel everything downstream is built on |
+| `annual_panel.csv` | 43 × 40 | The calendar-year panel everything downstream is built on |
 | `affordability.csv` | 43 × 44 | The engineered features — payment, required income, the index, rent vs own |
 | `payment_decomposition.csv` | 43 × 13 | Price/rate/interaction split against the 2021 base year |
 | `decomposition_sensitivity.csv` | 17 × 25 | The same split re-run from all 17 anchors, nominal and real |
@@ -418,6 +424,15 @@ same homes over time, which removes changes in *what* sold but also leaves out
 new construction. The real growth figures deflate every metro by national CPI,
 not local living costs, which shifts all 20 bars by the same factor without
 changing their order.
+
+**Supply is measured nationally, and in two halves that disagree.** Active
+listings and the homeowner vacancy rate describe the existing stock for sale;
+single-family starts and the months' supply of new homes describe construction.
+In 2021–2023 the first two sat near their lows while the last two ran above their
+pre-pandemic levels, so "supply" without saying which half is ambiguous. Listings only begin in July 2016, so the
+pre-pandemic baseline is 2017–2019, a short one. None of these series is local,
+and scarce listings holding prices up is consistent with the data, not proven by
+it.
 
 **Medians conceal distribution.** A median income paired with a median price
 tells you nothing about who is actually buying. If the buyer pool shifts toward
@@ -492,7 +507,7 @@ financial advice.
 
 - **Podcast episode:** script and show notes (not yet in this repo)
 - **Story page:** [`web/`](web/) — six of the eight figures as a narrative, a
-  regional comparison of 20 metros, and an interactive explorer for all 18
+  regional comparison of 20 metros, and an interactive explorer for all 22
   national FRED series underneath. Serve from the repo
   root (`python3 -m http.server 8000`, then `/web/`); see
   [`web/README.md`](web/README.md)

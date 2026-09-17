@@ -40,7 +40,7 @@
       <p class="eyebrow">AIPI-510 · Sourcing Data for Analytics · Module Project 1</p>
       <h1>Everyone expected high interest rates to cool home prices.<br>Prices barely eased, and the monthly payment soared.</h1>
       <p class="lede">
-        Standard economic theory suggests that when mortgage rates jump, home prices should fall to offset borrowing costs. But the actual story is more complicated. Buyers do not pay a sticker price; they pay a monthly payment and since 2008 pass a lender's income test. In the 2021–2023 window, the payment shock was large enough to overwhelm the limited supply response, leaving young buyers squeezed by both high prices and high financing costs. The figures below explain why.
+        Standard economic theory suggests that when mortgage rates jump, home prices should fall to offset borrowing costs. But the actual story is more complicated. Buyers do not pay a sticker price; they pay a monthly payment, and a lender caps that payment at a share of their income. In 2021–2023, higher rates drove the payment up while homes for sale stayed scarce: active listings averaged about half their 2017–2019 level and the homeowner vacancy rate fell to its lowest since 1956, even though builders started more single-family homes in 2021 than in any year since 2006. That left young buyers squeezed by both high prices and high financing costs. The figures below explain why.
       </p>
 
       <div class="stats">
@@ -354,7 +354,7 @@
     <div class="wrap">
       <h2 class="section-title">Explore the Source Data</h2>
       <p class="section-intro">
-        These charts trace the same story at the series level: mortgage rates, home prices, rent, debt, and the income a buyer needs to qualify. Eighteen series retrieved programmatically from FRED sit alongside the Census measures that capture household incomes and rents.
+        These charts trace the same story at the series level: mortgage rates, home prices, rent, debt, and the income a buyer needs to qualify. The 22 series retrieved programmatically from FRED sit alongside the Census measures that capture household incomes and rents.
       </p>
 
       <div class="tabs" data-tabgroup="explore">
@@ -370,8 +370,15 @@
 
       <div id="tab-housing" class="tab-panel is-active" data-tabgroup="explore">
         <p class="section-intro">
-          <strong>Housing Market Indicators:</strong> mortgage rates rose sharply, but price discovery was limited by supply constraints. The result was a much larger monthly payment shock than the headline price change implies.
+          <strong>Housing Market Indicators:</strong> mortgage rates more than doubled from 2021 to 2023, but homes for sale stayed scarce and the median price still rose 11%, so the monthly payment rose far faster than the headline price. The supply chart shows both sides: listings sat far below their pre-pandemic level and the vacancy rate hit a record low, while builders stepped up and the months' supply of new homes climbed.
         </p>
+        <div class="insight-card supply-card">
+          <h3>Housing Supply Around the Rate Shock</h3>
+          <p>
+            The shaded years are 2021–2023. The top two panels measure existing homes: how many were listed for sale, and the share of owner homes standing vacant. The bottom two measure new construction: single-family homes started, and how many months the new homes for sale would last at the current sales pace.
+          </p>
+          <div id="supply-chart" class="chart supply-chart" role="img" aria-label="Four stacked line charts from 2000: active listings, homeowner vacancy rate, single-family housing starts, and months' supply of new homes, with 2021 to 2023 shaded"></div>
+        </div>
         <div class="grid">
           <div class="card" data-series="MSPUS"></div>
           <div class="card" data-series="ASPUS"></div>
@@ -380,6 +387,10 @@
           <div class="card" data-series="DGS10"></div>
           <div class="card" data-series="DGS30"></div>
           <div class="card" data-series="PRIME"></div>
+          <div class="card" data-series="ACTLISCOUUS"></div>
+          <div class="card" data-series="RHVRUSQ156N"></div>
+          <div class="card" data-series="HOUST1F"></div>
+          <div class="card" data-series="MSACSR"></div>
           <div class="card" data-series="RHORUSQ156N"></div>
           <div class="card" data-series="hor_under_35"></div>
           <div class="card" data-series="monthly_piti"></div>
@@ -405,7 +416,7 @@
 
       <div id="tab-debt" class="tab-panel" data-tabgroup="explore" hidden>
         <p class="section-intro">
-          <strong>Debt Burden &amp; Qualifications:</strong> although incomes moved upward, debt service and other obligations made the qualifying bar harder to clear. The relevant question for a buyer is not only what a home costs, but whether the household can actually qualify for it.
+          <strong>Debt Burden &amp; Qualifications:</strong> consumer debt was not what made qualifying harder. Student loan and credit card debt per person fell from 10.5% of young-household income in 2019 to 9.2% in 2024. What pushed households past the qualifying line was the housing payment itself, which rose from 30% to 40% of young-household income between 2021 and 2023.
         </p>
         <div class="grid">
           <div class="card" data-series="SLOAS"></div>
@@ -468,7 +479,7 @@
         <div>
           <h3>Federal Reserve Economic Data (FRED)</h3>
           <p>
-            Eighteen national series, covering mortgage rates, inflation, home prices, household income, debt, and rents, were downloaded programmatically from FRED, the Federal Reserve Bank of St. Louis's economic database.
+            Twenty-two national series, covering mortgage rates, inflation, home prices, housing supply, household income, debt, and rents, were downloaded programmatically from FRED, the Federal Reserve Bank of St. Louis's economic database. Active listing counts are Realtor.com data, published through FRED.
           </p>
           <p>
             The regional comparison adds the home price index for each of the 20 metros in the S&amp;P Cotality Case-Shiller 20-City Composite (not seasonally adjusted), downloaded from FRED the same way.

@@ -235,6 +235,11 @@ a { color: var(--cool); }
 .insight-card ul { margin: 0.75rem 0 0; padding-left: 1.2rem; }
 /* The regional chart sits under the four forces cards, illustrating Location. */
 .regional-card { margin-top: 1.5rem; }
+/* The supply chart opens the Housing tab, above its per-series cards. */
+.supply-card { margin-bottom: 1.5rem; }
+/* Two classes: the explorer's later `.chart { min-height: 260px }` would otherwise
+   win, and Plotly autosizes the four panels down to that. */
+.chart.supply-chart { min-height: 680px; }
 .geo-trends-chart { margin-top: 1rem; min-height: 320px; }
 
 .takeaway-grid {

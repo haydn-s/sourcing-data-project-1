@@ -35,6 +35,9 @@ from config import (
     PROCESSED,
     REAL_DOLLAR_BASE_YEAR,
     SAVINGS_RATE,
+    SHOCK_END_YEAR,
+    SHOCK_START_YEAR,
+    SUPPLY_BASELINE_YEARS,
     TAX_INSURANCE_PCT,
     YOUNG_COHORT,
 )
@@ -349,6 +352,54 @@ def metro_price_growth(metros: pd.DataFrame, cpi: pd.Series,
     out = out.sort_values("real_growth_pct", ascending=False)
     out["rank"] = range(1, len(out) + 1)
     return out
+
+
+def complete_year_means(series: pd.Series) -> pd.Series:
+    """Calendar-year means of a monthly series, over years with all 12 months.
+
+    Averaging a year keeps one volatile month from defining it, and dropping
+    short years keeps a year-to-date average from reading as a full year.
+    """
+    s = series.dropna()
+    counts = s.groupby(s.index.year).count()
+    return s.groupby(s.index.year).mean()[counts == 12]
+
+
+def supply_summary(monthly: pd.DataFrame,
+                   shock=(SHOCK_START_YEAR, SHOCK_END_YEAR),
+                   baseline=SUPPLY_BASELINE_YEARS) -> dict:
+    """What housing supply did during the rate shock, from the monthly panel.
+
+    The page claims homes for sale were scarce while builders responded. This
+    is the arithmetic behind each half: listings against their pre-pandemic
+    level and the vacancy rate against its whole history (the existing stock),
+    then single-family starts and the months' supply of new homes (the
+    construction response).
+    """
+    listings = complete_year_means(monthly["ACTLISCOUUS"])
+    vacancy = complete_year_means(monthly["RHVRUSQ156N"])
+    starts = complete_year_means(monthly["HOUST1F"])
+    new_supply = complete_year_means(monthly["MSACSR"])
+    (s0, s1), (b0, b1) = shock, baseline
+
+    starts_peak_year = int(starts.loc[s0:s1].idxmax())
+    starts_peak = starts[starts_peak_year]
+    earlier_higher = starts.loc[:starts_peak_year - 1]
+    earlier_higher = earlier_higher[earlier_higher > starts_peak]
+    return {
+        "listings_shock_mean": listings.loc[s0:s1].mean(),
+        "listings_baseline_mean": listings.loc[b0:b1].mean(),
+        "listings_ratio": listings.loc[s0:s1].mean() / listings.loc[b0:b1].mean(),
+        "vacancy_first_year": int(vacancy.index.min()),
+        "vacancy_low_year": int(vacancy.idxmin()),
+        "vacancy_low": vacancy.min(),
+        "starts_peak_year": starts_peak_year,
+        "starts_peak": starts_peak,
+        "starts_last_higher_year": int(earlier_higher.index.max()) if len(earlier_higher) else None,
+        "starts_highest_since_peak": starts.loc[starts_peak_year + 1:].max(),
+        "new_home_supply_start": new_supply[s0],
+        "new_home_supply_end": new_supply[s1],
+    }
 
 
 def main() -> int:

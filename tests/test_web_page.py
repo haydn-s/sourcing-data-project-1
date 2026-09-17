@@ -470,7 +470,7 @@ def test_story_charts_use_the_configured_narrative_years():
     comment explains was rejected for flattering the claim."""
     import config
     js = (WEB / "main.js").read_text()
-    for name in ("INDEX_BASE_YEAR", "SHOCK_START_YEAR", "HOR_BASE_YEAR"):
+    for name in ("INDEX_BASE_YEAR", "SHOCK_START_YEAR", "SHOCK_END_YEAR", "HOR_BASE_YEAR"):
         m = re.search(rf"const {name} = (\d{{4}});", js)
         assert m, f"main.js no longer defines {name}"
         assert int(m.group(1)) == getattr(config, name), f"main.js {name} drifted from config"
@@ -637,3 +637,93 @@ def test_page_explains_itself_when_the_data_cannot_load(page):
     charts = re.findall(r'data-story-chart="(\d{2})"', page)
     fallbacks = re.findall(r'<noscript><img src="\.\./figures/(\d{2})_', page)
     assert charts == fallbacks
+
+
+# -------------------------------------------------------------------- supply
+
+@pytest.fixture(scope="module")
+def supply():
+    import pandas as pd
+    from features import supply_summary
+    csv = ROOT / "data" / "processed" / "fred_monthly.csv"
+    if not csv.exists():
+        pytest.skip("run `python src/run_all.py` first")
+    return supply_summary(pd.read_csv(csv, index_col="date", parse_dates=["date"]))
+
+
+def _tab_intro(flat, tab):
+    m = re.search(rf'<div id="{tab}"[^>]*>\s*<p class="section-intro">(.*?)</p>', flat)
+    assert m, f"the {tab} intro is gone"
+    return m.group(1)
+
+
+def test_supply_chart_draws_only_downloaded_series():
+    body = _js_function((WEB / "main.js").read_text(), "renderSupplyChart")
+    drawn = set(re.findall(r"id: '([A-Z0-9]+)'", body))
+    assert drawn, "renderSupplyChart no longer names its series"
+    assert drawn <= set(FRED_SERIES), f"supply chart series not in the pipeline: {sorted(drawn - set(FRED_SERIES))}"
+
+
+@pytest.mark.requires_data
+def test_hero_supply_claims_match_the_data(flat, supply):
+    """The hero once said the payment shock overwhelmed "the limited supply
+    response", with no supply data in the project. The data splits that claim:
+    homes for sale were scarce, but construction did respond."""
+    from config import SHOCK_END_YEAR, SHOCK_START_YEAR, SUPPLY_BASELINE_YEARS
+    lede = re.search(r'<p class="lede">(.*?)</p>', flat).group(1)
+    assert "since 2008" not in lede, "lenders tested income long before 2008"
+
+    b0, b1 = SUPPLY_BASELINE_YEARS
+    assert re.search(rf"In {SHOCK_START_YEAR}–{SHOCK_END_YEAR}, .*active listings averaged about half "
+                     rf"their {b0}–{b1} level", lede), "the listings claim changed wording or years"
+    assert 0.4 <= supply["listings_ratio"] <= 0.6, f"listings ran {supply['listings_ratio']:.0%} of baseline, not about half"
+
+    m = re.search(r"homeowner vacancy rate fell to its lowest since (\d{4})", lede)
+    assert m, "the vacancy claim changed wording"
+    assert int(m.group(1)) == supply["vacancy_first_year"]
+    assert SHOCK_START_YEAR <= supply["vacancy_low_year"] <= SHOCK_END_YEAR
+
+    m = re.search(r"builders started more single-family homes in (\d{4}) than in any year since (\d{4})", lede)
+    assert m, "the construction claim changed wording"
+    assert int(m.group(1)) == supply["starts_peak_year"]
+    assert int(m.group(2)) == supply["starts_last_higher_year"]
+    assert supply["starts_highest_since_peak"] < supply["starts_peak"], "a later year has overtaken the peak"
+
+
+@pytest.mark.requires_data
+def test_housing_tab_intro_matches_the_data(flat, aff, supply):
+    from config import SHOCK_END_YEAR, SHOCK_START_YEAR
+    text = _tab_intro(flat, "tab-housing")
+    assert "supply constraints" not in text and "price discovery" not in text
+    rate = aff["mortgage_rate"]
+    assert f"mortgage rates more than doubled from {SHOCK_START_YEAR} to {SHOCK_END_YEAR}" in text
+    assert rate[SHOCK_END_YEAR] > 2 * rate[SHOCK_START_YEAR]
+    m = re.search(r"the median price still rose (\d+)%", text)
+    assert m, "the price claim changed wording"
+    price = aff["median_price"]
+    assert int(m.group(1)) == round((price[SHOCK_END_YEAR] / price[SHOCK_START_YEAR] - 1) * 100)
+    assert "the vacancy rate hit a record low" in text
+    assert SHOCK_START_YEAR <= supply["vacancy_low_year"] <= SHOCK_END_YEAR
+    assert "the months' supply of new homes climbed" in text
+    assert supply["new_home_supply_end"] > supply["new_home_supply_start"]
+
+
+@pytest.mark.requires_data
+def test_debt_tab_intro_matches_the_data(flat, aff):
+    """The tab once said debt service made qualifying harder. Consumer debt fell
+    as a share of young-household income; the housing payment is what rose."""
+    text = _tab_intro(flat, "tab-debt")
+    assert "debt service and other obligations" not in text
+    m = re.search(r"per person fell from ([\d.]+)% of young-household income in (\d{4}) "
+                  r"to ([\d.]+)% in (\d{4})", text)
+    assert m, "the consumer debt claim changed wording"
+    debt = aff["consumer_debt_pct_income"]
+    start, end = int(m.group(2)), int(m.group(4))
+    assert float(m.group(1)) == round(debt[start], 1) and float(m.group(3)) == round(debt[end], 1)
+    assert end == debt.dropna().index.max() and debt[end] < debt[start]
+
+    m = re.search(r"rose from (\d+)% to (\d+)% of young-household income between (\d{4}) and (\d{4})", text)
+    assert m, "the payment-to-income claim changed wording"
+    ratio = aff["payment_to_income"] * 100
+    assert int(m.group(1)) == round(ratio[int(m.group(3))])
+    assert int(m.group(2)) == round(ratio[int(m.group(4))])
