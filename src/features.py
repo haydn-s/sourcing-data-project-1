@@ -4,8 +4,8 @@ The raw series answer "what did homes cost?". A buyer never faces a price --
 they face a monthly payment and an underwriting test. These features translate
 prices and rates into what a 25-34 year old household actually experiences:
 
-  monthly_piti          the actual monthly cost of the median home (before inflation)
-  required_income       income needed to qualify at a 28% front-end DTI
+  monthly_piti          modeled PITI on the median newly sold home
+  required_income       income implied by a 28% front-end DTI benchmark
   affordability_index   young-household income as a % of that requirement
   years_to_save_down    years to bank a 20% down payment
   price_effect /        counterfactual decomposition splitting the payment
@@ -70,7 +70,7 @@ def monthly_payment(price, annual_rate_pct, down_pct=DOWN_PAYMENT_PCT,
 
 
 def piti(price, annual_rate_pct, tax_ins_pct=TAX_INSURANCE_PCT, **kw):
-    """Total monthly housing cost: P&I plus taxes and insurance escrow."""
+    """Modeled monthly PITI: principal, interest, taxes, and insurance."""
     return monthly_payment(price, annual_rate_pct, **kw) + price * tax_ins_pct / 12.0
 
 
@@ -89,22 +89,23 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     df["income_all_ages"] = annual["all_median_current"]
     df["cpi"] = annual["CPIAUCSL"]
     df["cpi_inflation"] = annual["cpi_inflation"]
-    # Ex post: the nominal rate less the inflation that actually happened that
-    # year, not what borrowers expected. Negative means prices rose faster than
-    # the loan charged, so the real burden of the debt shrank.
+    # Ex post: the nominal rate less the CPI inflation that actually happened
+    # that year, not the long-run inflation borrowers expected. A negative value
+    # means the nominal rate was below consumer-price inflation; it says nothing
+    # about the direction of home prices.
     df["real_mortgage_rate"] = df["mortgage_rate"] - df["cpi_inflation"]
 
-    # --- what the buyer actually pays ------------------------------------
+    # --- modeled mortgage payment ----------------------------------------
     df["monthly_pi"] = monthly_payment(df["median_price"], df["mortgage_rate"])
     df["monthly_piti"] = piti(df["median_price"], df["mortgage_rate"])
     df["annual_housing_cost"] = df["monthly_piti"] * 12
 
     # --- the underwriting test -------------------------------------------
-    # Lenders cap housing cost at ~28% of gross income, so invert that to get
-    # the income a bank would require for the median home.
+    # Use the common 28% front-end DTI benchmark as a consistent comparison over
+    # time. Individual lenders and loan programs may use different thresholds.
     df["required_income"] = df["annual_housing_cost"] / FRONT_END_DTI
 
-    # 100 = the median young household earns exactly enough to qualify.
+    # 100 = the median young household exactly meets the project benchmark.
     df["affordability_index"] = df["income_young"] / df["required_income"] * 100
     df["affordability_index_all_ages"] = (
         df["income_all_ages"] / df["required_income"] * 100
@@ -123,7 +124,8 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     # Census HVS Table 11A: median asking rent on *vacant* units, i.e. what a
     # mover faces. That is the right series for someone deciding whether to buy,
     # since they are by definition moving -- but it is not what a sitting tenant
-    # pays, and the units on the market skew smaller than the median home. So
+    # pays, and the units on the market skew smaller than the median newly sold
+    # home. So
     # the level of this comparison is soft; its trend is what carries weight.
     df["asking_rent"] = annual["asking_rent"]
     df["annual_rent"] = df["asking_rent"] * 12
@@ -166,15 +168,17 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     df["credit_card_debt_per_capita"] = (
         annual["CCLACBW027SBOG"] * 1e9 / (annual["POPTHM"] * 1e3)
     )
-    # Student debt alone understates the claim on a young buyer's income; the
-    # back-end DTI test a lender applies counts revolving balances too.
+    # These national per-capita stocks are broad balance-sheet context only.
+    # They are not age-specific and do not measure the monthly payments used in
+    # an individual borrower's back-end DTI calculation.
     df["consumer_debt_per_capita"] = (
         df["student_debt_per_capita"] + df["credit_card_debt_per_capita"]
     )
     df["student_debt_pct_income"] = df["student_debt_per_capita"] / df["income_young"] * 100
     df["consumer_debt_pct_income"] = df["consumer_debt_per_capita"] / df["income_young"] * 100
-    # Room left for a mortgage after other debt service, as a share of income.
-    df["dti_headroom"] = BACK_END_DTI - df["payment_to_income"]
+    # Distance between the modeled housing share and a common 36% back-end DTI
+    # benchmark, before any non-housing debt service is deducted.
+    df["housing_headroom_to_back_end_dti"] = BACK_END_DTI - df["payment_to_income"]
 
     return df
 
@@ -252,7 +256,7 @@ def decompose_sensitivity(df: pd.DataFrame,
 
     **The denomination.** Over two years nominal and real agree. Over twenty
     they do not: CPI rose ~60% from 2006 to 2025 against ~70% nominal growth in
-    the median price, so a nominal split hands prices the credit for inflation.
+    the new-home median, so a nominal split hands prices the credit for inflation.
     If prices, incomes and rents all doubled with inflation and rates held flat,
     the nominal split would report "prices did 100% of it" while affordability
     was untouched. The real columns deflate the base-year price to
@@ -398,9 +402,10 @@ def inflation_summary(aff: pd.DataFrame, panel: pd.DataFrame) -> dict:
     """How the page's claims read once inflation is taken out.
 
     `aff` is affordability.csv and `panel` the annual panel (for CPI less
-    shelter). Price and payment changes are deflated by CPI-U; the rent check is
-    repeated with CPI less shelter, since shelter is about a third of CPI and
-    deflating housing by it partly deflates housing by itself.
+    shelter and the Case-Shiller national index). Price and payment changes are
+    deflated by CPI-U; the rent check is repeated with CPI less shelter, since
+    shelter is about a third of CPI and deflating housing by it partly deflates
+    housing by itself.
     """
     full = aff[~aff["is_partial_year"].fillna(False).astype(bool)]
     last = latest_complete_year(aff)
@@ -424,6 +429,10 @@ def inflation_summary(aff: pd.DataFrame, panel: pd.DataFrame) -> dict:
         "latest_income_year": last_income,
         "price_real_shock": real_change(full, "median_price", s0, s1),
         "payment_real_shock": real_change(full, "monthly_piti", s0, s1),
+        "case_shiller_real_shock": (
+            (panel.loc[s1, "CSUSHPINSA"] / panel.loc[s0, "CSUSHPINSA"])
+            / (full.loc[s1, "cpi"] / full.loc[s0, "cpi"]) - 1
+        ) * 100,
         "price_nominal_shock": (full.loc[s1, "median_price"] / full.loc[s0, "median_price"] - 1) * 100,
         "payment_nominal_shock": (full.loc[s1, "monthly_piti"] / full.loc[s0, "monthly_piti"] - 1) * 100,
         "price_real_since_shock": real_change(full, "median_price", s0, last),

@@ -1,7 +1,7 @@
 """Exploratory analysis: summary tables and the figures used in the story.
 
-Writes PNGs to figures/ and prints the findings quoted in the podcast script,
-so every number in the narrative is traceable to a command in this repo.
+Writes PNGs to figures/ and prints the findings used in the public story, so
+every number in the narrative is traceable to a command in this repo.
 """
 
 import sys
@@ -130,7 +130,7 @@ def _save(fig, name, note=None):
 
 
 def fig_income_vs_required(df):
-    """The scissors: what a buyer earns vs what a lender requires."""
+    """The scissors: what a buyer earns vs the benchmark required income."""
     d = df.dropna(subset=["income_young", "required_income_real2024"])
     req, inc = d["required_income_real2024"], d["income_young_real2024"]
     fig, ax = plt.subplots(figsize=(8.4, 4.6))
@@ -138,7 +138,7 @@ def fig_income_vs_required(df):
     ax.fill_between(d.index, inc, req, where=req > inc,
                     color=ACCENT, alpha=0.10, lw=0)
     ax.plot(d.index, req, color=ACCENT, lw=2.2,
-            label=f"Income a lender requires (at {FRONT_END_DTI:.0%} of gross)")
+            label=f"Income required under {FRONT_END_DTI:.0%} benchmark")
     ax.plot(d.index, inc, color=COOL, lw=2.2,
             label="Actual median income, householder age 25-34")
 
@@ -159,11 +159,11 @@ def fig_income_vs_required(df):
                 arrowprops=dict(arrowstyle="<->", color=INK, lw=1.1))
     # Sit the label in the open area left of the spike; directly beside the
     # connector it would be crossed by the steeply rising required-income line.
-    ax.annotate(f"{yr}: ${(hi - lo)/1000:.0f}k\nshort of qualifying",
+    ax.annotate(f"{yr}: ${(hi - lo)/1000:.0f}k\nshort of benchmark",
                 xy=(yr - 5.5, (hi + lo) / 2 * 1.04), fontsize=8.5, color=INK,
                 ha="center", va="center")
 
-    ax.set_title("The qualifying gap: what young buyers earn vs what banks require")
+    ax.set_title("The qualifying gap: young-household income vs benchmark")
     ax.set_ylabel("Annual income (2024 dollars)")
     _dollars(ax, thousands=True)
     _style(ax, xlim=(d.index.min(), last + 1.6))
@@ -175,13 +175,14 @@ def fig_price_vs_payment(df):
     """Over 20 years price and payment land in the same place. The gap is recent.
 
     An earlier version of this chart indexed at 2015, which made the two look
-    permanently divergent. They are not: from 2005 the median price is up ~73%
-    and the payment on it ~80%. What is real is the *post-2021* split, so the
-    chart shows the whole window and shades the shock instead of picking the
-    base year that flatters the claim.
+    permanently divergent. They are not: from 2005 through 2025 the median
+    new-home sale price is up about 76% and the modeled payment on it 86%. What
+    is real is the *post-2021* split, so the chart shows the whole window and
+    shades the shock instead of picking the base year that flatters the claim.
     """
     base_yr = INDEX_BASE_YEAR
     d = df.loc[base_yr:].dropna(subset=["median_price", "monthly_piti"])
+    d = d[~d["is_partial_year"].fillna(False).astype(bool)]
     price = d["median_price"] / d.loc[base_yr, "median_price"] * 100
     pay = d["monthly_piti"] / d.loc[base_yr, "monthly_piti"] * 100
 
@@ -190,8 +191,10 @@ def fig_price_vs_payment(df):
 
     # Shade the shock window -- the span the divergence actually belongs to.
     ax.axvspan(shock, last, color=ACCENT, alpha=0.055, lw=0)
-    ax.plot(d.index, price, color=COOL, lw=2.2, label="Median home price")
-    ax.plot(d.index, pay, color=ACCENT, lw=2.2, label="Monthly payment on that home")
+    ax.plot(d.index, price, color=COOL, lw=2.2,
+            label="Median new-home sale price")
+    ax.plot(d.index, pay, color=ACCENT, lw=2.2,
+            label="Modeled monthly payment")
     ax.axhline(100, color=MUTED, lw=0.9, ls=(0, (4, 3)))
 
     for series, color in ((pay, ACCENT), (price, COOL)):
@@ -214,7 +217,7 @@ def fig_price_vs_payment(df):
     _style(ax, xlim=(base_yr, last + 0.9))
     ax.set_xticks(range(base_yr, last + 1, 3))
     ax.legend(frameon=False, loc="upper left")
-    _save(fig, "02_price_vs_payment.png", _partial_note(d))
+    _save(fig, "02_price_vs_payment.png")
 
 
 def fig_decomposition(decomp):
@@ -271,9 +274,9 @@ def fig_affordability_index(df):
         ax.plot(yr, ai.loc[yr], "o", color=ACCENT, ms=5.5, zorder=5)
         _label_point(ax, yr, ai.loc[yr], txt, off)
 
-    ax.text(d.index.min() + 0.5, 100.9, "100 = the median young household exactly qualifies",
+    ax.text(d.index.min() + 0.5, 100.9, "100 = the median young household meets the benchmark",
             fontsize=8, color=INK, va="bottom")
-    ax.set_title("Can the typical 25-34 household afford the typical home?")
+    ax.set_title("Does the typical 25-34 household meet the benchmark?")
     ax.set_ylabel("Affordability index")
     _style(ax, xlim=(d.index.min() - 0.8, d.index.max() + 1.0))
     ax.set_ylim(ai.min() - 4, max(ai.max(), 100) + 6)
@@ -283,6 +286,7 @@ def fig_affordability_index(df):
 def fig_homeownership(df):
     """Two panels: a 28-point level gap makes a shared y-axis unreadable."""
     d = df.dropna(subset=["hor_under_35"])
+    d = d[~d["is_partial_year"].fillna(False).astype(bool)]
     fig, (ax1, ax2) = plt.subplots(
         2, 1, figsize=(8, 6.2), sharex=True, layout="constrained",
         gridspec_kw={"height_ratios": [1.35, 1]})
@@ -312,7 +316,7 @@ def fig_homeownership(df):
     ax2.set_ylim(a.min() - 1.2, a.max() + 1.2)
     _style(ax2, xlim=(d.index.min(), d.index.max()))
 
-    _save(fig, "05_homeownership_by_age.png", _partial_note(d))
+    _save(fig, "05_homeownership_by_age.png")
 
 
 def fig_down_payment(df):
@@ -416,13 +420,13 @@ def fig_rent_vs_own(df):
     """The alternative the audience is actually choosing from.
 
     Two panels. The top one is the level and the trend together, in constant
-    dollars: owning the median home has always cost roughly two to three times
-    renting, and over nearly forty years that monthly cost barely moved in real
-    terms -- while rent climbed steadily. The bottom panel is why that matters
-    to this project: rent takes a growing share of the very income a down
-    payment has to be saved out of, which is the mechanism behind figure 06.
+    dollars: the modeled cost of a median newly sold home has remained roughly
+    two to three times asking rent, while rent climbed much faster. The bottom
+    panel is why that matters to this project: rent takes a growing share of the
+    income a down payment has to be saved out of.
     """
     d = df.dropna(subset=["asking_rent_real2024", "monthly_ownership_cost_real2024"])
+    d = d[~d["is_partial_year"].fillna(False).astype(bool)]
     rent, own = d["asking_rent_real2024"], d["monthly_ownership_cost_real2024"]
     first, last = int(d.index.min()), int(d.index.max())
 
@@ -432,7 +436,8 @@ def fig_rent_vs_own(df):
 
     ax1.axvspan(SHOCK_START_YEAR, last, color=MUTED, alpha=0.10, lw=0)
     ax1.fill_between(d.index, rent, own, color=ACCENT, alpha=0.07, lw=0)
-    ax1.plot(d.index, own, color=ACCENT, lw=2.2, label="Owning the median home")
+    ax1.plot(d.index, own, color=ACCENT, lw=2.2,
+             label="Modeled cost: median newly sold home")
     ax1.plot(d.index, rent, color=COOL, lw=2.2, label="Renting (median asking rent)")
 
     for series, color in ((own, ACCENT), (rent, COOL)):
@@ -449,9 +454,10 @@ def fig_rent_vs_own(df):
                  xycoords=ax1.get_xaxis_transform(), fontsize=8,
                  color=MUTED, ha="center", va="bottom")
 
-    ax1.set_title("Renting is what got more expensive", loc="left", pad=24)
-    ax1.annotate("Monthly cash cost in constant 2024 dollars. Owning includes "
-                 "taxes, insurance and upkeep.",
+    ax1.set_title("Rent rose much faster than modeled ownership cost",
+                  loc="left", pad=24)
+    ax1.annotate("Monthly cash cost in constant 2024 dollars. Ownership model "
+                 "includes principal, interest, taxes, insurance and upkeep.",
                  xy=(0, 1), xycoords="axes fraction", xytext=(0, 7),
                  textcoords="offset points", fontsize=9, color=MUTED,
                  ha="left", va="bottom")
@@ -473,24 +479,28 @@ def fig_rent_vs_own(df):
                  xy=(0.02, 0.94), xycoords="axes fraction", fontsize=9,
                  color=INK, ha="left", va="top")
 
-    ax2.set_title("...and it eats the income a down payment is saved out of",
+    ax2.set_title("...and it takes income that could be saved for a down payment",
                   fontsize=10.5, loc="left")
     ax2.set_ylabel("Rent as % of income,\nhouseholder age 25-34")
     ax2.yaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
     _style(ax2, xlim=(first, last + 0.6))
 
     base_rate = d.loc[first, "mortgage_rate"]
+    sweep_start, sweep_end = 1990, 2019
+    own_sweep = [(own.loc[last] / own.loc[y] - 1) * 100
+                 for y in range(sweep_start, sweep_end + 1)]
+    rent_sweep = [(rent.loc[last] / rent.loc[y] - 1) * 100
+                  for y in range(sweep_start, sweep_end + 1)]
     caveat = (f"Asking rent covers vacant units — what a mover faces, not what a "
               f"sitting tenant pays — and those units skew smaller than the median "
-              f"home, so read the trends rather than the level. Cash costs only: no "
+              f"newly sold home, so read the trends rather than the level. Cash costs only: no "
               f"credit for the equity an owner builds. {first} is where the rent "
               f"series begins and was a {base_rate:.1f}% mortgage-rate year, so it "
-              f"flatters the ownership line: from any anchor between 1990 and 2019, "
-              f"real ownership cost is higher, by 2% to 42%. The rent trend survives "
-              f"that test over the same window, up 20% to 70%.")
-    partial = _partial_note(d)
-    _save(fig, "08_rent_vs_own.png",
-          f"{caveat} {partial}" if partial else caveat)
+              f"flatters the ownership line: from any anchor between {sweep_start} and "
+              f"{sweep_end}, real ownership cost is higher, by {min(own_sweep):.0f}% to "
+              f"{max(own_sweep):.0f}%. The rent trend survives that test over the same "
+              f"window, up {min(rent_sweep):.0f}% to {max(rent_sweep):.0f}%.")
+    _save(fig, "08_rent_vs_own.png", caveat)
 
 
 def print_findings(df, decomp, sens):
@@ -502,15 +512,16 @@ def print_findings(df, decomp, sens):
     print("=" * 72)
 
     last_income = int(df["income_young"].last_valid_index())
-    last_mkt = int(df["monthly_piti"].last_valid_index())
+    full = df[~df["is_partial_year"].fillna(False).astype(bool)]
+    last_mkt = int(full["monthly_piti"].last_valid_index())
 
     start, end = SHOCK_START_YEAR, SHOCK_END_YEAR
 
     def pct_change(col):
         return (g(end, col) / g(start, col) - 1) * 100
 
-    print(f"\n1. The payment, not the price, is what moved ({start} -> {end}):")
-    print(f"   median price      ${g(start,'median_price'):>10,.0f} -> ${g(end,'median_price'):>10,.0f}"
+    print(f"\n1. The payment outpaced the new-home median ({start} -> {end}):")
+    print(f"   median new-home price ${g(start,'median_price'):>9,.0f} -> ${g(end,'median_price'):>9,.0f}"
           f"  ({pct_change('median_price'):+.1f}%)")
     print(f"   mortgage rate     {g(start,'mortgage_rate'):>10.2f}% -> {g(end,'mortgage_rate'):>10.2f}%"
           f"  ({pct_change('mortgage_rate'):+.1f}%)")
@@ -555,7 +566,7 @@ def print_findings(df, decomp, sens):
           f"  ({pct_change('required_income'):+.1f}%)")
     print(f"   affordability index  {g(start,'affordability_index'):>9.1f} -> {g(end,'affordability_index'):>9.1f}")
     print(f"   and by {last_income} it had recovered only to "
-          f"{g(last_income,'affordability_index'):.1f} -- still short of qualifying.")
+          f"{g(last_income,'affordability_index'):.1f} -- still short of the benchmark.")
 
     ai = df["affordability_index"].dropna()
     print(f"\n5. Affordability index context:")
@@ -570,7 +581,7 @@ def print_findings(df, decomp, sens):
     print(f"   price-to-income     {era}: {g(era,'price_to_income'):.1f}"
           f"  ->  {last_income}: {g(last_income,'price_to_income'):.1f}")
 
-    rent = df.dropna(subset=["asking_rent_real2024"])
+    rent = full.dropna(subset=["asking_rent_real2024"])
     r_first, r_last = int(rent.index.min()), int(rent.index.max())
     own_r = df["monthly_ownership_cost_real2024"]
     print(f"\n6. Why that down payment got further away: rent")
@@ -581,17 +592,16 @@ def print_findings(df, decomp, sens):
           f"  ({_change_label(rent_r.loc[r_last], rent_r.loc[r_first])})")
     print(f"   owning             ${own_r.loc[r_first]:>7,.0f} -> ${own_r.loc[r_last]:>7,.0f}"
           f"  ({_change_label(own_r.loc[r_last], own_r.loc[r_first])})")
-    print(f"   Owning the median home costs about what it did in {r_first}, in real")
-    print(f"   terms. Renting is what got dramatically more expensive -- and rent")
+    print(f"   The modeled ownership cost rose far less than asking rent -- and rent")
     print(f"   is paid out of the same income a deposit has to be saved from:")
     rti = df["rent_to_income"].dropna()
     print(f"   rent as a share of income (25-34)   {int(rti.index.min())}: "
           f"{rti.iloc[0]*100:.0f}%  ->  {int(rti.index.max())}: {rti.iloc[-1]*100:.0f}%")
     print(f"   NOTE: cash costs only, no credit for equity; asking rent covers")
-    print(f"   vacant units, which skew smaller than the median home.")
+    print(f"   vacant units, which skew smaller than the median newly sold home.")
 
     print(f"\n7. Outcome: homeownership under 35")
-    hor = df["hor_under_35"].dropna()
+    hor = full["hor_under_35"].dropna()
     print(f"   {HOR_BASE_YEAR}: {hor.loc[HOR_BASE_YEAR]:.1f}%   peak {hor.idxmax()}: {hor.max():.1f}%"
           f"   {int(hor.index.max())}: {hor.iloc[-1]:.1f}%")
     print(f"   Still below its {HOR_BASE_YEAR} level after three decades.")
@@ -636,8 +646,10 @@ def print_inflation_findings(df, panel):
     print(f"   {INDEX_BASE_YEAR} -> {last}: price {s['price_real_long']:+.1f}% real, payment {s['payment_real_long']:+.1f}% real")
     print(f"   young income {start} -> {s['latest_income_year']}: {s['income_young_real_since_shock']:+.1f}% real;"
           f" required income {s['required_income_real_since_shock']:+.1f}% real")
-    print(f"   mortgage rate after inflation: {s['real_rate_low']:+.1f}% in {s['real_rate_low_year']}"
+    print(f"   ex-post mortgage rate minus CPI inflation: {s['real_rate_low']:+.1f}% in {s['real_rate_low_year']}"
           f" -> {s['real_rate_latest']:+.1f}% in {last}")
+    print(f"   Case-Shiller repeat-sales index, {start} -> {end}: "
+          f"{s['case_shiller_real_shock']:+.1f}% after CPI inflation")
     print(f"   a {start} buyer's fixed P&I payment lost {-s['payment_erosion_since_shock']:.0f}% of its real value by {s['latest_income_year']}")
     print(f"   years to save 20% down from {g1}: {s['save_years_static']:.1f} if the price stood still;"
           f" {s['save_years_savings_keep_up']:.1f} if prices and incomes keep their {g0}-{g1} pace"

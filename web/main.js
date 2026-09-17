@@ -29,8 +29,8 @@ const HOR_BASE_YEAR = 1994;
  * title falls back to a FRED series ID, which tells a reader nothing. */
 const SERIES_META = {
   MORTGAGE30US:    {label: '30-Year Fixed Mortgage Rate', unit: 'Percent', note: 'Freddie Mac PMMS. The single biggest lever on the monthly payment.'},
-  MSPUS:           {label: 'Median Sales Price of Houses Sold', unit: 'U.S. dollars', note: 'Census/HUD. The price series every figure in the story is built on.'},
-  ASPUS:           {label: 'Average Sales Price of Houses Sold', unit: 'U.S. dollars', note: 'Mean rather than median, so it is pulled upward by luxury sales.'},
+  MSPUS:           {label: 'Median Sales Price of New Houses Sold', unit: 'U.S. dollars', note: 'Census/HUD new single-family sales. The dollar-price series used by the payment model.'},
+  ASPUS:           {label: 'Average Sales Price of New Houses Sold', unit: 'U.S. dollars', note: 'New single-family sales; the mean is pulled upward by higher-priced sales.'},
   CSUSHPINSA:      {label: 'Case-Shiller National Home Price Index', unit: 'Index, Jan 2000 = 100', note: 'Repeat-sales index: tracks the same homes over time, so it is not distorted by changes in what sells.'},
   RHORUSQ156N:     {label: 'Homeownership Rate, All Ages', unit: 'Percent', note: 'The all-ages benchmark the under-35 rate is compared against.'},
   PRIME:           {label: 'Bank Prime Loan Rate', unit: 'Percent', note: 'Short-term borrowing cost; drives HELOCs and adjustable-rate products.'},
@@ -42,7 +42,7 @@ const SERIES_META = {
   CCLACBW027SBOG:  {label: 'Credit Card &amp; Revolving Credit', unit: 'Billions of dollars', note: "Counted by a lender's back-end DTI test alongside the mortgage."},
   GDP:             {label: 'Gross Domestic Product', unit: 'Billions of dollars', note: 'Overall economic activity, for context on the demand side.'},
   CUSR0000SA0L2:   {label: 'CPI Less Shelter', unit: 'Index, 1982-84 = 100', note: 'Every consumer price except housing: a check on deflating housing by an index that is one-third housing.'},
-  CPIAUCSL:        {label: 'Consumer Price Index (CPI-U)', unit: 'Index, 1982-84 = 100', note: 'Used to deflate to constant dollars — the adjustment that moves the crossover in figure 4 by eight years.'},
+  CPIAUCSL:        {label: 'Consumer Price Index (CPI-U)', unit: 'Index, 1982-84 = 100', note: 'Used to deflate to constant dollars — the adjustment that moves the crossover in figure 7 by eight years.'},
   UNRATE:          {label: 'Unemployment Rate', unit: 'Percent', note: 'Job-market strength underwrites both demand and the ability to keep paying.'},
   POPTHM:          {label: 'U.S. Population', unit: 'Thousands', note: 'The denominator for the per-capita debt measures.'},
   ACTLISCOUUS:     {label: 'Active Listings (Realtor.com)', unit: 'Listings', note: 'Homes listed for sale nationally, mostly existing homes. Monthly from July 2016.'},
@@ -51,16 +51,16 @@ const SERIES_META = {
   MSACSR:          {label: "Months' Supply of New Houses", unit: 'Months', note: 'New homes for sale divided by the current monthly sales pace.'},
   G160651A027NBEA: {label: 'Federal Outlays: Housing &amp; Urban Development', unit: 'Billions of dollars', note: 'Federal spending on housing programmes.'},
   CUSR0000SEHA:    {label: 'CPI: Rent of Primary Residence', unit: 'Index, 1982-84 = 100', note: 'Contract rent — what a sitting tenant pays, including renewals. The counterpart to asking rent below.'},
-  asking_rent:     {label: 'Median Asking Rent', unit: 'Dollars per month', note: 'Census HVS Table 11A: rent on vacant units, i.e. what a mover faces. Rose 62% in real terms since 1988.'},
+  asking_rent:     {label: 'Median Asking Rent', unit: 'Dollars per month', note: 'Census HVS Table 11A: rent on vacant units, i.e. what a mover faces. Rose 60% after inflation from 1988 through 2025.'},
 
-  affordability_index:      {label: 'Affordability Index (age 25–34)', unit: 'Index, 100 = exactly qualifies', note: 'Median young-household income as a share of the income a lender requires.'},
-  real_mortgage_rate:       {label: 'Mortgage Rate After Inflation', unit: 'Percent', note: "The 30-year rate less that year's CPI inflation. Below zero, prices rose faster than the loan charged."},
-  monthly_piti:             {label: 'Monthly Payment on the Median Home', unit: 'Dollars per month', note: 'Principal, interest, taxes and insurance at 20% down on a 30-year fixed.'},
-  required_income:          {label: 'Income Required to Qualify', unit: 'Dollars per year', note: 'The 28% front-end DTI rule, inverted.'},
+  affordability_index:      {label: 'Affordability Index (age 25–34)', unit: 'Index, 100 = meets benchmark', note: 'Median young-household income as a share of income required under the project benchmark.'},
+  real_mortgage_rate:       {label: 'Ex-Post Mortgage Rate Minus CPI Inflation', unit: 'Percentage points', note: "The 30-year rate less that year's realized CPI inflation. This retrospective proxy is not a borrower's expected long-run real rate."},
+  monthly_piti:             {label: 'Modeled Payment on the Median Newly Sold Home', unit: 'Dollars per month', note: 'Principal, interest, estimated taxes and insurance at 20% down on a 30-year fixed; excludes HOA fees and transaction costs.'},
+  required_income:          {label: 'Income Required Under the Benchmark', unit: 'Dollars per year', note: 'Modeled payment divided by a common 28% front-end DTI benchmark; lender rules vary.'},
   years_to_save_down:       {label: 'Years to Save a 20% Down Payment', unit: 'Years', note: 'At a 10% savings rate — the barrier a payment-based measure misses.'},
   hor_under_35:             {label: 'Homeownership Rate, Under 35', unit: 'Percent', note: 'The outcome variable the whole project points at.'},
-  consumer_debt_per_capita: {label: 'Consumer Debt per Capita', unit: 'Dollars', note: 'Student loans plus revolving credit, per person.'},
-  monthly_ownership_cost:   {label: 'Monthly Cost of Owning', unit: 'Dollars per month', note: 'Principal, interest, taxes, insurance and upkeep — the all-in figure comparable to a rent cheque.'},
+  consumer_debt_per_capita: {label: 'National Consumer Debt per Capita', unit: 'Dollars', note: 'Student-loan and revolving-credit stocks divided by the total population. Not age-specific and not monthly debt service.'},
+  monthly_ownership_cost:   {label: 'Modeled Monthly Ownership Cost', unit: 'Dollars per month', note: 'Principal, interest, estimated taxes, insurance and upkeep; excludes HOA fees and transaction costs.'},
   rent_to_income:           {label: 'Rent as a Share of Income', unit: 'Share of gross income (25–34)', note: 'Rent competes directly with saving a down payment.'}
 };
 
@@ -286,7 +286,7 @@ async function renderStoryFigures() {
       drawStoryChart(element, [
         storyTrace(rows, 'income_all_ages_real2024', 'All households', COOL, money),
         storyTrace(rows, 'income_young_real2024', 'Households aged 25–34', '#6b8e23', money),
-        storyTrace(rows, 'required_income_real2024', 'Income required to qualify', RED, money)
+        storyTrace(rows, 'required_income_real2024', 'Income required under benchmark', RED, money)
       ], layout);
     },
     '02': element => {
@@ -309,8 +309,8 @@ async function renderStoryFigures() {
          line: {color: MUTED, width: 1, dash: 'dash'}}
       ];
       drawStoryChart(element, [
-        storyTrace(indexed, 'price_index', 'Median home price', COOL, () => '%{y:.0f}'),
-        storyTrace(indexed, 'payment_index', 'Monthly payment', RED, () => '%{y:.0f}')
+        storyTrace(indexed, 'price_index', 'Median new-home sale price', COOL, () => '%{y:.0f}'),
+        storyTrace(indexed, 'payment_index', 'Modeled monthly payment', RED, () => '%{y:.0f}')
       ], layout);
     },
     '04': element => {

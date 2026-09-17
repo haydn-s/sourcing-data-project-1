@@ -220,10 +220,12 @@ def test_hero_rent_figure_matches_the_data(flat):
     csv = ROOT / "data" / "processed" / "affordability.csv"
     if not csv.exists():
         pytest.skip("run `python src/run_all.py` first")
-    rent = pd.read_csv(csv, index_col="year")["asking_rent_real2024"].dropna()
+    data = pd.read_csv(csv, index_col="year")
+    rent = data.loc[~data["is_partial_year"].astype(bool),
+                    "asking_rent_real2024"].dropna()
     growth = (rent.iloc[-1] / rent.iloc[0] - 1) * 100
 
-    m = re.search(r'stat-value">\+(\d+)%</span>\s*<span class="stat-label">Real cost of renting',
+    m = re.search(r'stat-value">\+(\d+)%</span>\s*<span class="stat-label">Median asking rent after inflation',
                   flat)
     assert m, "the hero no longer states the real rent figure"
     assert int(m.group(1)) == pytest.approx(growth, abs=1)
@@ -238,13 +240,16 @@ def test_headline_claims_about_price_and_payment_match_the_data(flat, inflation)
     assert h1, "the hero has no headline"
     headline = h1.group(1)
     assert not re.search(r"all-time high|record high", headline.lower())
+    assert "median new-home sale price" in headline
     from config import SHOCK_START_YEAR
-    m = re.search(r"After inflation, prices have fallen since (\d{4}), "
-                  r"and the monthly payment is still up (\d+)%", headline)
+    m = re.search(r"After inflation, it fell (\d+)% from (\d{4}) to (\d{4})—"
+                  r"and the modeled monthly payment still rose (\d+)%", headline)
     assert m, "the headline changed wording"
-    assert int(m.group(1)) == SHOCK_START_YEAR
+    assert int(m.group(2)) == SHOCK_START_YEAR
+    assert int(m.group(3)) == inflation["latest_year"]
     assert inflation["price_real_since_shock"] < 0, "prices no longer down after inflation"
-    assert int(m.group(2)) == round(inflation["payment_real_since_shock"])
+    assert int(m.group(1)) == round(-inflation["price_real_since_shock"])
+    assert int(m.group(4)) == round(inflation["payment_real_since_shock"])
 
 
 def test_any_flatness_claim_in_the_hero_names_its_anchor(flat):
@@ -341,7 +346,7 @@ def test_house_hack_rent_and_income_claims_match_the_data(flat, aff):
 def test_house_hack_rent_offset_illustration_matches_the_data(flat, aff):
     text = _house_hack(flat)
     cost, rent = aff.loc[2024, "monthly_ownership_cost"], aff.loc[2024, "asking_rent"]
-    assert _quoted(text, r"with 20% down, was <strong>\$([\d,]+)</strong>") == round(cost)
+    assert _quoted(text, r"with 20% down.*?was <strong>\$([\d,]+)</strong>") == round(cost)
     assert _quoted(text, r"median asking rent of <strong>\$([\d,]+)</strong>") == round(rent)
     assert _quoted(text, r"would cover <strong>(\d+)%</strong>") == round(rent / cost * 100)
 
@@ -514,7 +519,7 @@ def test_reason_one_income_figures_match_the_data(page, aff, inflation):
                                    (latest, m.group(5), m.group(6))):
         assert _money(earned) == round(aff.loc[year, "income_young_real2024"])
         assert _money(required) == round(aff.loc[year, "required_income_real2024"])
-    m = re.search(r"After inflation its income rose (\d+)% while the income required rose (\d+)%", text)
+    m = re.search(r"After inflation its income rose (\d+)% while the benchmark income required rose (\d+)%", text)
     assert m, "Reason 1's after-inflation comparison changed wording"
     assert int(m.group(1)) == round(inflation["income_young_real_since_shock"])
     assert int(m.group(2)) == round(inflation["required_income_real_since_shock"])
@@ -533,8 +538,8 @@ def test_reason_two_price_and_payment_figures_match_the_data(page, aff):
     last = int(full[["median_price", "monthly_piti"]].dropna().index.max())
     pct = lambda col, start: round((full.loc[last, col] / full.loc[start, col] - 1) * 100)
 
-    m = re.search(rf"[Ff]rom {INDEX_BASE_YEAR} to {last} the median price rose (\d+)% "
-                  r"and the monthly payment on it (\d+)%", text)
+    m = re.search(rf"[Ff]rom {INDEX_BASE_YEAR} to {last} the median new-home sale price rose (\d+)% "
+                  r"and the modeled monthly payment on it (\d+)%", text)
     assert m, "Reason 2's long-run comparison changed wording or years"
     assert int(m.group(1)) == pct("median_price", INDEX_BASE_YEAR)
     assert int(m.group(2)) == pct("monthly_piti", INDEX_BASE_YEAR)
@@ -574,7 +579,7 @@ def test_reason_three_index_figures_match_the_data(flat, page, aff):
 @pytest.mark.requires_data
 def test_reason_four_saving_figures_match_the_data(page, aff):
     text = _panel_attr(page, 4, "data-figure-summary")
-    m = re.search(r"needed ([\d.]+) years to save a 20% down payment on the median home "
+    m = re.search(r"needed ([\d.]+) years to save a 20% down payment on the median newly sold home "
                   r"in (\d{4}) and ([\d.]+) years in (\d{4})", text)
     assert m, "Reason 4's saving comparison changed wording"
     years = aff["years_to_save_down"].dropna()
@@ -725,7 +730,7 @@ def test_housing_tab_intro_matches_the_data(flat, aff, supply):
     rate = aff["mortgage_rate"]
     assert f"mortgage rates more than doubled from {SHOCK_START_YEAR} to {SHOCK_END_YEAR}" in text
     assert rate[SHOCK_END_YEAR] > 2 * rate[SHOCK_START_YEAR]
-    m = re.search(r"the median price still rose (\d+)%", text)
+    m = re.search(r"the median new-home sale price still rose (\d+)%", text)
     assert m, "the price claim changed wording"
     price = aff["median_price"]
     assert int(m.group(1)) == round((price[SHOCK_END_YEAR] / price[SHOCK_START_YEAR] - 1) * 100)
@@ -737,19 +742,20 @@ def test_housing_tab_intro_matches_the_data(flat, aff, supply):
 
 @pytest.mark.requires_data
 def test_debt_tab_intro_matches_the_data(flat, aff):
-    """The tab once said debt service made qualifying harder. Consumer debt fell
-    as a share of young-household income; the housing payment is what rose."""
+    """The national stock comparison is checked without treating it as applicant
+    debt service or evidence about an age-specific qualification decision."""
     text = _tab_intro(flat, "tab-debt")
-    assert "debt service and other obligations" not in text
-    m = re.search(r"per person fell from ([\d.]+)% of young-household income in (\d{4}) "
-                  r"to ([\d.]+)% in (\d{4})", text)
+    assert "does not determine how other debts affected qualification" in text
+    assert "not age-specific" in text and "do not measure the monthly debt service" in text
+    m = re.search(r"per U\.S\. resident equaled ([\d.]+)% of median young-household income in (\d{4}) "
+                  r"and ([\d.]+)% in (\d{4})", text)
     assert m, "the consumer debt claim changed wording"
     debt = aff["consumer_debt_pct_income"]
     start, end = int(m.group(2)), int(m.group(4))
     assert float(m.group(1)) == round(debt[start], 1) and float(m.group(3)) == round(debt[end], 1)
     assert end == debt.dropna().index.max() and debt[end] < debt[start]
 
-    m = re.search(r"rose from (\d+)% to (\d+)% of young-household income between (\d{4}) and (\d{4})", text)
+    m = re.search(r"rose from (\d+)% to (\d+)% of (?:young-household|that) income between (\d{4}) and (\d{4})", text)
     assert m, "the payment-to-income claim changed wording"
     ratio = aff["payment_to_income"] * 100
     assert int(m.group(1)) == round(ratio[int(m.group(3))])
@@ -770,12 +776,24 @@ def test_reason_two_after_inflation_figures_match_the_data(flat, page, inflation
     assert int(m.group(1)) == round(-inflation["price_real_since_shock"])
     assert int(m.group(2)) == round(inflation["payment_real_since_shock"])
 
-    m = re.search(r"After inflation, the mortgage rate went from −([\d.]+)% in (\d{4}) to \+([\d.]+)% in (\d{4})", flat)
+    m = re.search(r"ex-post mortgage rate minus same-year CPI inflation moved from −([\d.]+)% in (\d{4}) to \+([\d.]+)% in (\d{4})", flat)
     assert m, "Reason 2's real-rate sentence changed wording"
     assert -float(m.group(1)) == round(inflation["real_rate_low"], 1)
     assert int(m.group(2)) == inflation["real_rate_low_year"]
     assert float(m.group(3)) == round(inflation["real_rate_latest"], 1)
     assert int(m.group(4)) == inflation["latest_year"]
+
+
+@pytest.mark.requires_data
+def test_price_measure_caveat_contrasts_new_home_median_and_case_shiller(flat, inflation):
+    """The headline measure and the constant-quality index moved in opposite
+    directions after inflation, so the page must name both rather than present
+    the new-home median as the whole market."""
+    m = re.search(r"It fell ([\d.]+)% after CPI inflation from 2021 to 2023, "
+                  r"while the .*?Case-Shiller national repeat-sales index .*? rose ([\d.]+)% after inflation", flat)
+    assert m, "the page no longer explains the scope-sensitive price result"
+    assert -float(m.group(1)) == pytest.approx(inflation["price_real_shock"], abs=0.05)
+    assert float(m.group(2)) == pytest.approx(inflation["case_shiller_real_shock"], abs=0.05)
 
 
 @pytest.mark.requires_data

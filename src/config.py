@@ -18,8 +18,8 @@ FIGURES = ROOT / "figures"
 FRED_SERIES = {
     # Housing market
     "MORTGAGE30US": ("30-Year Fixed Mortgage Rate", "weekly", "percent"),
-    "MSPUS":        ("Median Sales Price of Houses Sold", "quarterly", "usd"),
-    "ASPUS":        ("Average Sales Price of Houses Sold", "quarterly", "usd"),
+    "MSPUS":        ("Median Sales Price of New Houses Sold", "quarterly", "usd"),
+    "ASPUS":        ("Average Sales Price of New Houses Sold", "quarterly", "usd"),
     "CSUSHPINSA":   ("Case-Shiller U.S. National Home Price Index", "monthly", "index"),
     "RHORUSQ156N":  ("Homeownership Rate (all ages)", "quarterly", "percent"),
     # Contract rent: what a sitting tenant pays, including renewals. Pairs with
@@ -168,7 +168,7 @@ DECOMP_SENSITIVITY_BASE_YEARS = tuple(range(2005, SHOCK_START_YEAR + 1))
 
 # Index base for the price-vs-payment chart. Indexing at 2015 made price and
 # payment look wildly divergent; indexing at 2005 shows them ending up in almost
-# the same place (+73% vs +80%). The divergence is real but it is a *post-2021*
+# the same place through 2025 (+76% vs +86%). The divergence is real but it is a *post-2021*
 # phenomenon, so the chart runs the full window and shades the shock rather than
 # choosing the base that flatters the claim.
 INDEX_BASE_YEAR = 2005

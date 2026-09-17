@@ -458,7 +458,10 @@ def test_inflation_summary_deflates_against_the_same_cpi_as_the_real_columns(pan
     full["is_partial_year"] = [y == 2026 for y in years]
     full["months_observed"] = [8 if y == 2026 else 12 for y in years]
     affordability = build_affordability(full)
-    deflators = pd.DataFrame({"CUSR0000SA0L2": affordability["cpi"] * 0.9}, index=affordability.index)
+    deflators = pd.DataFrame({
+        "CUSR0000SA0L2": affordability["cpi"] * 0.9,
+        "CSUSHPINSA": affordability["median_price"],
+    }, index=affordability.index)
     s = inflation_summary(affordability, deflators)
     base, last = 2021, s["latest_year"]
     expected = ((affordability.loc[last, "median_price_real2024"]

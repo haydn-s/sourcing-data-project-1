@@ -75,11 +75,11 @@ def pct_change(df, col, start, end):
 
 def test_headline_changes_2021_to_2023(readme, data):
     aff = data["aff"]
-    assert claimed(readme, r"prices \+([\d.]+)%, mortgage rate") == pytest.approx(
+    assert claimed(readme, r"new-home sale price \+([\d.]+)%, mortgage rate") == pytest.approx(
         pct_change(aff, "median_price", 2021, 2023), abs=0.05)
     assert claimed(readme, r"mortgage rate \+(\d+)%") == pytest.approx(
         pct_change(aff, "mortgage_rate", 2021, 2023), abs=1.0)
-    assert claimed(readme, r"monthly payment \+([\d.]+)%") == pytest.approx(
+    assert claimed(readme, r"modeled monthly payment \+([\d.]+)%") == pytest.approx(
         pct_change(aff, "monthly_piti", 2021, 2023), abs=0.05)
 
 
@@ -212,8 +212,9 @@ def test_the_1980s_comparison(readme, data):
 
 
 def test_homeownership_outcome(readme, data):
-    hor = data["aff"]["hor_under_35"].dropna()
-    assert claimed(readme, r"under 35 is \*\*([\d.]+)%\*\*") == pytest.approx(
+    full = data["aff"][~data["aff"]["is_partial_year"].astype(bool)]
+    hor = full["hor_under_35"].dropna()
+    assert claimed(readme, r"under 35 was \*\*([\d.]+)%\*\*") == pytest.approx(
         hor.iloc[-1], abs=0.05)
     assert claimed(readme, r"below its \*\*([\d.]+)%\*\* level in 1994") == pytest.approx(
         hor.loc[1994], abs=0.05)
@@ -225,15 +226,17 @@ def test_homeownership_outcome(readme, data):
 
 def test_real_rent_and_ownership_cost_endpoints(readme, data):
     aff = data["aff"]
-    r = aff.dropna(subset=["asking_rent_real2024"])
+    full = aff[~aff["is_partial_year"].astype(bool)]
+    r = full.dropna(subset=["asking_rent_real2024"])
     first, last = int(r.index.min()), int(r.index.max())
 
-    assert claimed(readme, r"about where it was in (\d{4})") == first
-    assert claimed(readme, r"\(\$([\d,]+) → \$[\d,]+\)\. Renting") == pytest.approx(
+    assert claimed(readme, r"From (\d{4}) to the latest complete") == first
+    assert claimed(readme, r"latest complete market year, (\d{4})") == last
+    assert claimed(readme, r"inflation \(\$([\d,]+) → \$[\d,]+\)\. Median") == pytest.approx(
         aff.loc[first, "monthly_ownership_cost_real2024"], abs=1)
-    assert claimed(readme, r"\(\$[\d,]+ → \$([\d,]+)\)\. Renting") == pytest.approx(
+    assert claimed(readme, r"inflation \(\$[\d,]+ → \$([\d,]+)\)\. Median") == pytest.approx(
         aff.loc[last, "monthly_ownership_cost_real2024"], abs=1)
-    assert claimed(readme, r"rose \*\*\+(\d+)%\*\* over") == pytest.approx(
+    assert claimed(readme, r"Median asking rent rose \*\*(\d+)%\*\* over") == pytest.approx(
         (r.loc[last, "asking_rent_real2024"] / r.loc[first, "asking_rent_real2024"] - 1) * 100,
         abs=1)
     assert claimed(readme, r"same span \(\$([\d,]+) →") == pytest.approx(
@@ -242,31 +245,36 @@ def test_real_rent_and_ownership_cost_endpoints(readme, data):
         r.loc[last, "asking_rent_real2024"], abs=1)
 
 
-def test_owning_really_is_about_flat_in_real_terms(readme, data):
-    """The claim the finding rests on. If a revision moves it, the wording has
-    to change, not just the numbers."""
+def test_modeled_ownership_cost_grew_less_than_rent(readme, data):
+    """The revised claim is comparative, not that ownership cost was flat."""
     aff = data["aff"]
-    r = aff.dropna(subset=["asking_rent_real2024"])
+    full = aff[~aff["is_partial_year"].astype(bool)]
+    r = full.dropna(subset=["asking_rent_real2024"])
     first, last = int(r.index.min()), int(r.index.max())
-    change = (aff.loc[last, "monthly_ownership_cost_real2024"]
-              / aff.loc[first, "monthly_ownership_cost_real2024"] - 1) * 100
-    assert abs(change) < 5, f"owning moved {change:+.1f}% — 'about where it was' no longer holds"
+    own_change = (aff.loc[last, "monthly_ownership_cost_real2024"]
+                  / aff.loc[first, "monthly_ownership_cost_real2024"] - 1) * 100
+    rent_change = (r.loc[last, "asking_rent_real2024"]
+                   / r.loc[first, "asking_rent_real2024"] - 1) * 100
+    assert claimed(readme, r"modeled monthly cash cost.*?rose \*\*(\d+)%\*\*") == \
+        pytest.approx(own_change, abs=1)
+    assert own_change < rent_change
 
 
 def test_rent_burden_endpoints(readme, data):
     rti = data["aff"]["rent_to_income"].dropna()
-    assert claimed(readme, r"takes \*\*(\d+)%\*\* of a 25") == pytest.approx(
+    assert claimed(readme, r"rent took \*\*(\d+)%\*\* of a 25") == pytest.approx(
         rti.iloc[-1] * 100, abs=1)
     assert claimed(readme, r"up from \*\*(\d+)%\*\* in \d{4}") == pytest.approx(
         rti.iloc[0] * 100, abs=1)
 
 
 def test_own_to_rent_ratio_endpoints(readme, data):
-    ratio = data["aff"]["own_to_rent_ratio"].dropna()
-    first = int(data["aff"].dropna(subset=["asking_rent_real2024"]).index.min())
+    full = data["aff"][~data["aff"]["is_partial_year"].astype(bool)]
+    ratio = full["own_to_rent_ratio"].dropna()
+    first = int(full.dropna(subset=["asking_rent_real2024"]).index.min())
     assert claimed(readme, r"\((\d\.\d)× in \d{4}") == pytest.approx(
         ratio.loc[first], abs=0.05)
-    assert claimed(readme, r"× in \d{4}, (\d\.\d)× now\)") == pytest.approx(
+    assert claimed(readme, r"× in \d{4}, (\d\.\d)× in \d{4}\)") == pytest.approx(
         ratio.iloc[-1], abs=0.05)
     assert (ratio > 1).all(), "the README says owning has *always* cost more per month"
 
@@ -275,8 +283,9 @@ def test_base_year_caveat_numbers(readme, data):
     """The caveat finding 7 applies to itself. These are computed claims: if a
     revision moves the sweep, the prose has to move with it."""
     aff = data["aff"]
-    own = aff["monthly_ownership_cost_real2024"]
-    rent = aff["asking_rent_real2024"].dropna()
+    full = aff[~aff["is_partial_year"].astype(bool)]
+    own = full["monthly_ownership_cost_real2024"]
+    rent = full["asking_rent_real2024"].dropna()
     end = int(rent.index.max())
 
     assert claimed(readme, r"it was a \*\*(\d+\.\d)%\*\*\s*mortgage-rate year") == \
@@ -313,8 +322,9 @@ def test_base_year_caveat_numbers(readme, data):
 def test_figure_02_index_endpoints(readme, data):
     """The note explaining why figure 02 no longer indexes at 2015."""
     aff = data["aff"].loc[2005:].dropna(subset=["median_price", "monthly_piti"])
+    aff = aff[~aff["is_partial_year"].astype(bool)]
     last = aff.index.max()
-    assert claimed(readme, r"price is up ~(\d+)%") == pytest.approx(
+    assert claimed(readme, r"new-home median is up ~(\d+)%") == pytest.approx(
         pct_change(aff, "median_price", 2005, last), abs=1)
     assert claimed(readme, r"the payment on it ~(\d+)%") == pytest.approx(
         pct_change(aff, "monthly_piti", 2005, last), abs=1)
@@ -346,6 +356,13 @@ def test_deflator_check_on_real_rent(readme, inflation):
     assert claimed(readme, rf"rose \*\*(\d+)%\*\* from {r0} to {r1} rather than") == \
         round(inflation["rent_real_less_shelter"])
     assert claimed(readme, r"rather than \*\*(\d+)%\*\*, so the rent") == round(inflation["rent_real_cpi"])
+
+
+def test_price_measure_caveat(readme, inflation):
+    assert claimed(readme, r"From 2021 to 2023 it fell \*\*([\d.]+)%\*\* after") == \
+        pytest.approx(-inflation["price_real_shock"], abs=0.05)
+    assert claimed(readme, r"repeat-sales index in this repository rose \*\*([\d.]+)%\*\*") == \
+        pytest.approx(inflation["case_shiller_real_shock"], abs=0.05)
 
 
 def test_years_to_save_with_a_moving_price(readme, inflation):
