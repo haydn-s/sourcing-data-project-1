@@ -19,10 +19,13 @@ from features import (
     latest_complete_year,
     complete_year_means,
     housing_supply,
+    inflation_summary,
     metro_price_growth,
     supply_summary,
     monthly_payment,
     piti,
+    real_change,
+    years_to_save_moving,
 )
 
 
@@ -93,6 +96,7 @@ def panel():
             "all_median_current": [56_000.0, 68_700, 68_010, 70_780, 83_730,
                                    np.nan, np.nan],
             "CPIAUCSL": [237.0, 255.7, 258.8, 271.0, 314.0, 322.0, 330.0],
+            "cpi_inflation": [0.1, 1.8, 1.2, 4.7, 3.0, 2.5, 2.4],
             "hor_under_35": [34.7, 36.7, 39.2, 38.2, 37.1, 37.1, 36.0],
             "hor_all": [63.7, 64.6, 66.6, 65.5, 65.6, 65.2, 64.9],
             "SLOAS": [1_300_000.0] * n,
@@ -414,3 +418,51 @@ def test_housing_supply_indexes_each_series_to_its_own_baseline():
     assert out.loc[2021, "listings_index"] == pytest.approx(50.0)
     assert out.loc[2021, "starts_index"] == pytest.approx(130.0)
     assert set(out["baseline_start"]) == {2017} and set(out["baseline_end"]) == {2019}
+
+
+# -------------------------------------------------------------------- inflation
+
+def test_real_mortgage_rate_subtracts_that_years_inflation(affordability):
+    assert affordability.loc[2021, "real_mortgage_rate"] == pytest.approx(2.96 - 4.7)
+    assert affordability.loc[2024, "real_mortgage_rate"] == pytest.approx(6.72 - 3.0)
+
+
+def test_real_change_is_zero_when_a_series_only_tracks_cpi():
+    df = pd.DataFrame({"x": [100.0, 150.0], "cpi": [200.0, 300.0]}, index=[2000, 2010])
+    assert real_change(df, "x", 2000, 2010) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_moving_target_reduces_to_the_static_measure_when_nothing_moves():
+    """$400k at 20% down is $80k; 10% of $90k a year is $9k, so 8.89 years --
+    the same arithmetic as years_to_save_down."""
+    assert years_to_save_moving(400_000, 90_000, 0, 0, 0) == pytest.approx(80_000 / 9_000)
+
+
+def test_moving_target_takes_longer_when_prices_outrun_savings():
+    static = years_to_save_moving(400_000, 90_000, 0, 0, 0)
+    both_track_inflation = years_to_save_moving(400_000, 90_000, 0.03, 0.03, 0.03)
+    savings_earn_nothing = years_to_save_moving(400_000, 90_000, 0.03, 0.03, 0.0)
+    prices_outrun_incomes = years_to_save_moving(400_000, 90_000, 0.04, 0.03, 0.03)
+    # Everything growing together, savings included, is the static case scaled up.
+    assert both_track_inflation == pytest.approx(static, abs=0.35)
+    assert savings_earn_nothing > both_track_inflation
+    assert prices_outrun_incomes > both_track_inflation
+
+
+def test_inflation_summary_deflates_against_the_same_cpi_as_the_real_columns(panel):
+    # The summary reads the configured years (2005, 2021, 2023), so fill the
+    # fixture's gaps into a continuous annual panel first.
+    years = range(2005, 2027)
+    numeric = panel.drop(columns=["is_partial_year", "months_observed"])
+    full = numeric.reindex(years).astype(float).interpolate(limit_direction="both")
+    full["is_partial_year"] = [y == 2026 for y in years]
+    full["months_observed"] = [8 if y == 2026 else 12 for y in years]
+    affordability = build_affordability(full)
+    deflators = pd.DataFrame({"CUSR0000SA0L2": affordability["cpi"] * 0.9}, index=affordability.index)
+    s = inflation_summary(affordability, deflators)
+    base, last = 2021, s["latest_year"]
+    expected = ((affordability.loc[last, "median_price_real2024"]
+                 / affordability.loc[base, "median_price_real2024"]) - 1) * 100
+    assert s["price_real_since_shock"] == pytest.approx(expected)
+    # A deflator proportional to CPI must give the same real rent change.
+    assert s["rent_real_less_shelter"] == pytest.approx(s["rent_real_cpi"])

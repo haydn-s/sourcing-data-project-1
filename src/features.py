@@ -4,7 +4,7 @@ The raw series answer "what did homes cost?". A buyer never faces a price --
 they face a monthly payment and an underwriting test. These features translate
 prices and rates into what a 25-34 year old household actually experiences:
 
-  monthly_piti          the real monthly cost of the median home
+  monthly_piti          the actual monthly cost of the median home (before inflation)
   required_income       income needed to qualify at a 28% front-end DTI
   affordability_index   young-household income as a % of that requirement
   years_to_save_down    years to bank a 20% down payment
@@ -13,6 +13,7 @@ prices and rates into what a 25-34 year old household actually experiences:
   growth_pct /          home price growth in each Case-Shiller metro, nominal
   real_growth_pct       and inflation-adjusted, for the regional comparison
 
+  real_mortgage_rate    the 30-year rate less that year's CPI inflation
   listings_index /      homes for sale and single-family starts, each as a
   starts_index          share of its 2017-2019 average, for the supply chart
 
@@ -32,6 +33,7 @@ from config import (
     DECOMP_SENSITIVITY_BASE_YEARS,
     DOWN_PAYMENT_PCT,
     FRONT_END_DTI,
+    INDEX_BASE_YEAR,
     LOAN_TERM_YEARS,
     MAINTENANCE_PCT,
     METRO_GROWTH_BASE_YEAR,
@@ -86,6 +88,11 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     df["income_young"] = annual[income_col]
     df["income_all_ages"] = annual["all_median_current"]
     df["cpi"] = annual["CPIAUCSL"]
+    df["cpi_inflation"] = annual["cpi_inflation"]
+    # Ex post: the nominal rate less the inflation that actually happened that
+    # year, not what borrowers expected. Negative means prices rose faster than
+    # the loan charged, so the real burden of the debt shrank.
+    df["real_mortgage_rate"] = df["mortgage_rate"] - df["cpi_inflation"]
 
     # --- what the buyer actually pays ------------------------------------
     df["monthly_pi"] = monthly_payment(df["median_price"], df["mortgage_rate"])
@@ -143,7 +150,7 @@ def build_affordability(annual: pd.DataFrame) -> pd.DataFrame:
     # series with CPI-U-RS. The two differ slightly; see README limitations.
     cpi_base = df.loc[REAL_DOLLAR_BASE_YEAR, "cpi"]
     for col in ["median_price", "monthly_piti", "required_income", "income_young",
-                "down_payment", "asking_rent", "monthly_ownership_cost",
+                "income_all_ages", "down_payment", "asking_rent", "monthly_ownership_cost",
                 "income_after_rent"]:
         df[f"{col}_real2024"] = df[col] * cpi_base / df["cpi"]
 
@@ -356,6 +363,93 @@ def metro_price_growth(metros: pd.DataFrame, cpi: pd.Series,
     out = out.sort_values("real_growth_pct", ascending=False)
     out["rank"] = range(1, len(out) + 1)
     return out
+
+
+def real_change(df: pd.DataFrame, col: str, start: int, end: int) -> float:
+    """Percent change in `col` from start to end after removing CPI inflation."""
+    nominal = df.loc[end, col] / df.loc[start, col]
+    return (nominal / (df.loc[end, "cpi"] / df.loc[start, "cpi"]) - 1) * 100
+
+
+def years_to_save_moving(price, income, price_growth, income_growth, savings_return,
+                         savings_rate=SAVINGS_RATE, down_pct=DOWN_PAYMENT_PCT,
+                         max_years=100) -> float:
+    """Years to save a down payment when the price keeps moving while you save.
+
+    `years_to_save_down` divides today's down payment by today's savings, as if
+    the price stood still. Here the price and income grow each year and the
+    savings earn `savings_return`. With all three at zero this reduces to the
+    static measure exactly, fractional final year included.
+    """
+    saved = 0.0
+    for year in range(1, max_years + 1):
+        grown = saved * (1 + savings_return)
+        contribution = income * savings_rate
+        target = price * down_pct
+        if grown + contribution >= target:
+            return year - 1 + max(0.0, (target - grown) / contribution)
+        saved = grown + contribution
+        price *= 1 + price_growth
+        income *= 1 + income_growth
+    return float("inf")
+
+
+def inflation_summary(aff: pd.DataFrame, panel: pd.DataFrame) -> dict:
+    """How the page's claims read once inflation is taken out.
+
+    `aff` is affordability.csv and `panel` the annual panel (for CPI less
+    shelter). Price and payment changes are deflated by CPI-U; the rent check is
+    repeated with CPI less shelter, since shelter is about a third of CPI and
+    deflating housing by it partly deflates housing by itself.
+    """
+    full = aff[~aff["is_partial_year"].fillna(False).astype(bool)]
+    last = latest_complete_year(aff)
+    last_income = int(full["income_young"].dropna().index.max())
+    s0, s1 = SHOCK_START_YEAR, SHOCK_END_YEAR
+    rate = full["real_mortgage_rate"].dropna()
+
+    first = int(full["income_young"].dropna().index.min())
+    span = last_income - first
+    growth = lambda col: (full.loc[last_income, col] / full.loc[first, col]) ** (1 / span) - 1
+    price_g, income_g, cpi_g = growth("median_price"), growth("income_young"), growth("cpi")
+    start = full.loc[last_income]
+
+    rent = full["asking_rent"].dropna()
+    r0 = int(rent.index.min())
+    less_shelter = panel["CUSR0000SA0L2"]
+    rent_real = lambda deflator: ((rent[last] / rent[r0]) / (deflator[last] / deflator[r0]) - 1) * 100
+
+    return {
+        "latest_year": last,
+        "latest_income_year": last_income,
+        "price_real_shock": real_change(full, "median_price", s0, s1),
+        "payment_real_shock": real_change(full, "monthly_piti", s0, s1),
+        "price_nominal_shock": (full.loc[s1, "median_price"] / full.loc[s0, "median_price"] - 1) * 100,
+        "payment_nominal_shock": (full.loc[s1, "monthly_piti"] / full.loc[s0, "monthly_piti"] - 1) * 100,
+        "price_real_since_shock": real_change(full, "median_price", s0, last),
+        "payment_real_since_shock": real_change(full, "monthly_piti", s0, last),
+        "price_real_long": real_change(full, "median_price", INDEX_BASE_YEAR, last),
+        "payment_real_long": real_change(full, "monthly_piti", INDEX_BASE_YEAR, last),
+        "income_young_real_since_shock": real_change(full, "income_young", s0, last_income),
+        "required_income_real_since_shock": real_change(full, "required_income", s0, last_income),
+        "real_rate_low_year": int(rate.loc[s0:].idxmin()),
+        "real_rate_low": rate.loc[s0:].min(),
+        "real_rate_latest": rate[last],
+        "real_rate_rise": rate[last] - rate.loc[s0:].min(),
+        "payment_erosion_since_shock": (full.loc[s0, "cpi"] / full.loc[last_income, "cpi"] - 1) * 100,
+        "growth_window": (first, last_income),
+        "price_growth": price_g * 100,
+        "income_growth": income_g * 100,
+        "cpi_growth": cpi_g * 100,
+        "save_years_static": start["years_to_save_down"],
+        "save_years_savings_keep_up": years_to_save_moving(
+            start["median_price"], start["income_young"], price_g, income_g, cpi_g),
+        "save_years_savings_earn_nothing": years_to_save_moving(
+            start["median_price"], start["income_young"], price_g, income_g, 0.0),
+        "rent_window": (r0, last),
+        "rent_real_cpi": rent_real(full["cpi"]),
+        "rent_real_less_shelter": rent_real(less_shelter),
+    }
 
 
 def complete_year_means(series: pd.Series) -> pd.Series:

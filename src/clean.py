@@ -271,6 +271,10 @@ def build_annual_panel(
     annual.index = annual.index.year
     annual.index.name = "year"
 
+    # Year-over-year CPI inflation, taken before the panel is trimmed to
+    # ANALYSIS_START_YEAR so that first year still has a prior year to compare.
+    annual["cpi_inflation"] = annual["CPIAUCSL"].pct_change() * 100
+
     # Months of observed data behind each year, so partial years are visible
     # downstream instead of silently reading as a complete year.
     obs = monthly["MORTGAGE30US"].notna().resample("YS").sum()

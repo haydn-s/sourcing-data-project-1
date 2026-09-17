@@ -40,6 +40,10 @@ FRED_SERIES = {
     "DGS30":        ("30-Year Treasury Constant Maturity", "daily", "percent"),
     "GDP":          ("Gross Domestic Product", "quarterly", "usd_billions"),
     "CPIAUCSL":     ("CPI-U, All Items, SA", "monthly", "index"),
+    # A robustness check on the deflator, not a replacement for it. Shelter is
+    # about a third of CPI, so deflating house prices and rents by the headline
+    # index partly deflates housing by itself.
+    "CUSR0000SA0L2": ("CPI-U, All Items Less Shelter, SA", "monthly", "index"),
     "UNRATE":       ("Unemployment Rate", "monthly", "percent"),
     "POPTHM":       ("U.S. Population", "monthly", "thousands"),
     # Household balance sheet

@@ -41,6 +41,7 @@ const SERIES_META = {
   SLOAS:           {label: 'Student Loans Outstanding', unit: 'Millions of dollars', note: 'A competing claim on the same income a mortgage would be paid from.'},
   CCLACBW027SBOG:  {label: 'Credit Card &amp; Revolving Credit', unit: 'Billions of dollars', note: "Counted by a lender's back-end DTI test alongside the mortgage."},
   GDP:             {label: 'Gross Domestic Product', unit: 'Billions of dollars', note: 'Overall economic activity, for context on the demand side.'},
+  CUSR0000SA0L2:   {label: 'CPI Less Shelter', unit: 'Index, 1982-84 = 100', note: 'Every consumer price except housing: a check on deflating housing by an index that is one-third housing.'},
   CPIAUCSL:        {label: 'Consumer Price Index (CPI-U)', unit: 'Index, 1982-84 = 100', note: 'Used to deflate to constant dollars — the adjustment that moves the crossover in figure 4 by eight years.'},
   UNRATE:          {label: 'Unemployment Rate', unit: 'Percent', note: 'Job-market strength underwrites both demand and the ability to keep paying.'},
   POPTHM:          {label: 'U.S. Population', unit: 'Thousands', note: 'The denominator for the per-capita debt measures.'},
@@ -53,6 +54,7 @@ const SERIES_META = {
   asking_rent:     {label: 'Median Asking Rent', unit: 'Dollars per month', note: 'Census HVS Table 11A: rent on vacant units, i.e. what a mover faces. Rose 62% in real terms since 1988.'},
 
   affordability_index:      {label: 'Affordability Index (age 25–34)', unit: 'Index, 100 = exactly qualifies', note: 'Median young-household income as a share of the income a lender requires.'},
+  real_mortgage_rate:       {label: 'Mortgage Rate After Inflation', unit: 'Percent', note: "The 30-year rate less that year's CPI inflation. Below zero, prices rose faster than the loan charged."},
   monthly_piti:             {label: 'Monthly Payment on the Median Home', unit: 'Dollars per month', note: 'Principal, interest, taxes and insurance at 20% down on a 30-year fixed.'},
   required_income:          {label: 'Income Required to Qualify', unit: 'Dollars per year', note: 'The 28% front-end DTI rule, inverted.'},
   years_to_save_down:       {label: 'Years to Save a 20% Down Payment', unit: 'Years', note: 'At a 10% savings rate — the barrier a payment-based measure misses.'},
@@ -274,15 +276,17 @@ async function renderStoryFigures() {
    * and its <noscript> fallback carry the same number. */
   const draw = {
     '01': element => {
-      const rows = validRows(affordability, ['year', 'income_young', 'income_all_ages', 'required_income']);
+      // In 2024 dollars, like figures/01_income_vs_required.png: before
+      // inflation, "incomes kept rising" was mostly prices rising.
+      const rows = validRows(affordability, ['year', 'income_young_real2024', 'income_all_ages_real2024', 'required_income_real2024']);
       // No in-chart title: the panel header names the figure, and a title here
       // collided with the horizontal legend.
-      const layout = storyLayout('Annual income (US dollars)');
+      const layout = storyLayout('Annual income (2024 dollars)');
       layout.yaxis.tickformat = '$,.0f';
       drawStoryChart(element, [
-        storyTrace(rows, 'income_all_ages', 'All households', COOL, money),
-        storyTrace(rows, 'income_young', 'Households aged 25–34', '#6b8e23', money),
-        storyTrace(rows, 'required_income', 'Income required to qualify', RED, money)
+        storyTrace(rows, 'income_all_ages_real2024', 'All households', COOL, money),
+        storyTrace(rows, 'income_young_real2024', 'Households aged 25–34', '#6b8e23', money),
+        storyTrace(rows, 'required_income_real2024', 'Income required to qualify', RED, money)
       ], layout);
     },
     '02': element => {

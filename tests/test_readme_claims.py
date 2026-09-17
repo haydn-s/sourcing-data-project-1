@@ -326,3 +326,35 @@ def test_nominal_price_growth_quoted_in_the_methodology_note(readme, data):
     actual = (aff.loc[end, "median_price"] / aff.loc[2006, "median_price"] - 1) * 100
     assert claimed(readme, r"~(\d+)% nominal growth in the median price") == pytest.approx(
         actual, abs=1)
+
+
+
+# --------------------------------------------------- inflation notes
+
+@pytest.fixture(scope="module")
+def inflation():
+    from features import inflation_summary
+    panel = PROCESSED / "annual_panel.csv"
+    if not panel.exists():
+        pytest.skip("run `python src/run_all.py` first; missing annual_panel.csv")
+    return inflation_summary(pd.read_csv(PROCESSED / "affordability.csv", index_col="year"),
+                             pd.read_csv(panel, index_col="year"))
+
+
+def test_deflator_check_on_real_rent(readme, inflation):
+    r0, r1 = inflation["rent_window"]
+    assert claimed(readme, rf"rose \*\*(\d+)%\*\* from {r0} to {r1} rather than") == \
+        round(inflation["rent_real_less_shelter"])
+    assert claimed(readme, r"rather than \*\*(\d+)%\*\*, so the rent") == round(inflation["rent_real_cpi"])
+
+
+def test_years_to_save_with_a_moving_price(readme, inflation):
+    g0, g1 = inflation["growth_window"]
+    assert claimed(readme, rf"keep their {g0}–{g1} pace \(\+([\d.]+)% and") == \
+        round(inflation["price_growth"], 1)
+    assert claimed(readme, r"and \+([\d.]+)% a year\), saving") == round(inflation["income_growth"], 1)
+    assert claimed(readme, rf"saving from {g1} takes\s+\*\*([\d.]+)\*\* years") == \
+        round(inflation["save_years_savings_keep_up"], 1)
+    assert claimed(readme, r"rather than \*\*([\d.]+)\*\* when savings") == round(inflation["save_years_static"], 1)
+    assert claimed(readme, r"and \*\*([\d.]+)\*\* when\s+they earn nothing") == \
+        round(inflation["save_years_savings_earn_nothing"], 1)

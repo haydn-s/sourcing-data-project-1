@@ -146,6 +146,7 @@ Retrieved via `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES_ID>`.
 | `CCLACBW027SBOG` | Credit Card Loans, All Commercial Banks | Weekly |
 | `CUSR0000SEHA` | CPI: Rent of Primary Residence, SA | Monthly |
 | `CPIAUCSL` | Consumer Price Index for All Urban Consumers | Monthly |
+| `CUSR0000SA0L2` | CPI for All Urban Consumers: All Items Less Shelter (a check on the deflator) | Monthly |
 | `UNRATE` | Unemployment Rate | Monthly |
 | `POPTHM` | Population, Total | Monthly |
 | `GDP` | Gross Domestic Product | Quarterly |
@@ -159,7 +160,7 @@ Retrieved via `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES_ID>`.
 
 > Federal Reserve Bank of St. Louis, *FRED Economic Data*.
 > https://fred.stlouisfed.org/ (retrieved August 2026; the four supply series
-> September 2026). `ACTLISCOUUS` is Realtor.com Economic Research data published
+> and CPI less shelter September 2026). `ACTLISCOUUS` is Realtor.com Economic Research data published
 > through FRED.
 
 #### Regional home prices: S&P Cotality Case-Shiller 20-City metros
@@ -231,6 +232,7 @@ the other. Every assumption is a named constant in
 | `affordability_index` | Median income (age 25–34) ÷ `required_income` × 100 | 100 = the median young household exactly qualifies |
 | `years_to_save_down` | 20% of price ÷ (income × 10% savings rate) | The barrier a payment-based measure misses entirely |
 | `price_effect` / `rate_effect` / `interaction` | Two-factor counterfactual decomposition of the payment change vs 2021 | Separates how much of the pain is prices vs rates |
+| `real_mortgage_rate` | `mortgage_rate` − that year's CPI-U inflation (`cpi_inflation`) | The cost of borrowing once inflation is taken out; below zero, prices rose faster than the loan charged |
 | `real_price_effect` / `real_rate_effect` | The same split with the base-year price deflated to 2024 dollars | Over long horizons the nominal split credits prices for inflation |
 | `hor_gap_under35` | All-ages homeownership rate − under-35 rate | The outcome variable |
 | `student_debt_per_capita` | `SLOAS` ÷ population | Competing claim on the same income |
@@ -342,7 +344,7 @@ No network required — the suite runs against the committed CSVs. Six groups:
 | [`tests/test_clean.py`](tests/test_clean.py) | The three Census workbook parsers, against miniature fixtures that reproduce the real quirks — dot-leader quarter labels, footnote markers glued to years, duplicate years, and the two column-header rows. Also asserts each parser *fails loudly* when its assumed layout is gone |
 | [`tests/test_readme_claims.py`](tests/test_readme_claims.py) | Every number in this README, read back out of the markdown by regex and compared to `data/processed/`. Edit a figure in one place and not the other and this fails, naming the claim |
 | [`tests/test_eda.py`](tests/test_eda.py) | The partial-year footnote helper, plus smoke tests that every figure renders and `print_findings` runs |
-| [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown, every explorer card resolves to an exported series, the regional chart reads the exported ranking rather than numbers typed into `main.js`, the supply, debt and income-test claims match the data, the headline's price and payment claims hold, and every number in the house hacking section matches the data or the amortisation schedule |
+| [`tests/test_web_page.py`](tests/test_web_page.py) | The claims `web/index.html` makes in prose — the series count, the Census tables credited, the figure count — plus that every generated figure is actually shown, every explorer card resolves to an exported series, the regional chart reads the exported ranking rather than numbers typed into `main.js`, the supply, debt, income-test and inflation claims match the data, the headline's price and payment claims hold, and every number in the house hacking section matches the data or the amortisation schedule |
 | [`tests/test_reproducibility.py`](tests/test_reproducibility.py) | That the committed CSVs are what the committed code produces. Compared numerically at a 1e-9 relative tolerance, not byte-for-byte: `piti()` raises `(1+r)` to the 360th power, and the last bit of `pow` differs between an arm64 laptop and an x86-64 CI runner |
 
 `pytest -m "not requires_data"` skips the group that needs a pipeline run.
@@ -355,13 +357,13 @@ are cleaned sources; the last six are the analysis.
 
 | File | Shape | What it holds |
 |---|---|---|
-| `fred_monthly.csv` | 956 × 23 | Every FRED series on a shared monthly index |
+| `fred_monthly.csv` | 956 × 24 | Every FRED series on a shared monthly index |
 | `metro_hpi_monthly.csv` | 474 × 21 | The 20 Case-Shiller metro indices, monthly, not forward-filled |
 | `homeownership_age.csv` | 130 × 9 | HVS Table 19, quarterly, by age of householder |
 | `asking_rent.csv` | 154 × 5 | HVS Table 11A, quarterly median asking rent |
 | `income_by_age.csv` | 58 × 9 | CPS H-10, median income by age of householder |
-| `annual_panel.csv` | 43 × 40 | The calendar-year panel everything downstream is built on |
-| `affordability.csv` | 43 × 44 | The engineered features — payment, required income, the index, rent vs own |
+| `annual_panel.csv` | 43 × 42 | The calendar-year panel everything downstream is built on |
+| `affordability.csv` | 43 × 47 | The engineered features — payment, required income, the index, rent vs own |
 | `payment_decomposition.csv` | 43 × 13 | Price/rate/interaction split against the 2021 base year |
 | `decomposition_sensitivity.csv` | 17 × 25 | The same split re-run from all 17 anchors, nominal and real |
 | `housing_supply.csv` | 9 × 7 | Active listings and single-family starts by year, each indexed to its 2017–2019 average |
@@ -484,6 +486,18 @@ while Census deflates its own real-income series with CPI-U-RS. The two differ
 slightly. To avoid mixing them, the affordability ratio is computed entirely in
 *nominal* dollars; real values appear only for display.
 
+**The deflator is partly housing.** Shelter is about a third of CPI-U, so
+deflating rents and prices by it partly deflates housing by itself. As a check,
+`CUSR0000SA0L2` (CPI less shelter) is downloaded too: deflated by it, the median
+asking rent rose **74%** from 1988 to 2025 rather than **60%**, so the rent
+finding gets stronger, not weaker. `python src/eda.py` prints both.
+
+**Years to save assumes the price holds still.** `years_to_save_down` divides
+today's down payment by today's savings. If the median price and young-household
+income keep their 1984–2024 pace (+4.2% and +3.4% a year), saving from 2024 takes
+**10.4** years rather than **9.3** when savings keep up with CPI, and **12.5** when
+they earn nothing (`features.years_to_save_moving`).
+
 **Incomplete years are flagged, not hidden.** Market data runs through August
 2026, so 2026 is a year-to-date average and is marked with an asterisk in
 figures and an `is_partial_year` column in the data. Census income data lags by
@@ -508,7 +522,7 @@ financial advice.
 
 - **Podcast episode:** script and show notes (not yet in this repo)
 - **Story page:** [`web/`](web/) — six of the eight figures as a narrative, a
-  regional comparison of 20 metros, and an interactive explorer for all 22
+  regional comparison of 20 metros, and an interactive explorer for all 23
   national FRED series underneath. Serve from the repo
   root (`python3 -m http.server 8000`, then `/web/`); see
   [`web/README.md`](web/README.md)

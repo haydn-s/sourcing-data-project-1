@@ -621,6 +621,33 @@ def print_supply_findings(monthly):
     print("=" * 72)
 
 
+def print_inflation_findings(df, panel):
+    """How the headline numbers read after inflation, and whether the choice of
+    deflator matters."""
+    from features import inflation_summary
+    s = inflation_summary(df, panel)
+    start, end, last = SHOCK_START_YEAR, SHOCK_END_YEAR, s["latest_year"]
+    g0, g1 = s["growth_window"]
+    r0, r1 = s["rent_window"]
+    print(f"\nINFLATION CHECK (CPI-U)")
+    print(f"   {start} -> {end}: price {s['price_nominal_shock']:+.1f}% nominal, {s['price_real_shock']:+.1f}% real;"
+          f" payment {s['payment_nominal_shock']:+.1f}% nominal, {s['payment_real_shock']:+.1f}% real")
+    print(f"   {start} -> {last}: price {s['price_real_since_shock']:+.1f}% real, payment {s['payment_real_since_shock']:+.1f}% real")
+    print(f"   {INDEX_BASE_YEAR} -> {last}: price {s['price_real_long']:+.1f}% real, payment {s['payment_real_long']:+.1f}% real")
+    print(f"   young income {start} -> {s['latest_income_year']}: {s['income_young_real_since_shock']:+.1f}% real;"
+          f" required income {s['required_income_real_since_shock']:+.1f}% real")
+    print(f"   mortgage rate after inflation: {s['real_rate_low']:+.1f}% in {s['real_rate_low_year']}"
+          f" -> {s['real_rate_latest']:+.1f}% in {last}")
+    print(f"   a {start} buyer's fixed P&I payment lost {-s['payment_erosion_since_shock']:.0f}% of its real value by {s['latest_income_year']}")
+    print(f"   years to save 20% down from {g1}: {s['save_years_static']:.1f} if the price stood still;"
+          f" {s['save_years_savings_keep_up']:.1f} if prices and incomes keep their {g0}-{g1} pace"
+          f" (+{s['price_growth']:.1f}% / +{s['income_growth']:.1f}% a year) and savings keep up with CPI;"
+          f" {s['save_years_savings_earn_nothing']:.1f} if savings earn nothing")
+    print(f"   real asking rent {r0} -> {r1}: {s['rent_real_cpi']:+.0f}% deflated by CPI,"
+          f" {s['rent_real_less_shelter']:+.0f}% by CPI less shelter")
+    print("=" * 72)
+
+
 def main() -> int:
     df = pd.read_csv(PROCESSED / "affordability.csv", index_col="year")
     decomp = pd.read_csv(PROCESSED / "payment_decomposition.csv", index_col="year")
@@ -639,6 +666,8 @@ def main() -> int:
     print_findings(df, decomp, sens)
     monthly = pd.read_csv(PROCESSED / "fred_monthly.csv", index_col="date", parse_dates=["date"])
     print_supply_findings(monthly)
+    panel = pd.read_csv(PROCESSED / "annual_panel.csv", index_col="year")
+    print_inflation_findings(df, panel)
     return 0
 
 
