@@ -62,15 +62,27 @@ import ...`), which only resolves when Python puts the script's own directory on
 The JSON duplicates `data/processed/*.csv` and is committed only so the page
 works from a fresh clone. It is written with compact separators for that reason.
 
-## Deploying
+## Deploying with GitHub Pages
 
-Any static host works as long as the **repository root** is the document root,
-so that both `web/` and `figures/` are reachable — GitHub Pages serving from the
-repo root is the path of least resistance.
+`.github/workflows/pages.yml` publishes the site whenever a change reaches
+`main`. The workflow stages a deployment artifact rather than changing the
+source layout:
 
-If you ever need to serve `web/` as its own root (some Spaces configurations do
-this), copy `figures/` into `web/figures/` at build time and update the `src`
-attributes to match. Nothing else in the page reaches outside `web/`.
+1. The contents of `web/` become the root of the published site.
+2. `figures/` is copied into the artifact for the no-JavaScript fallbacks.
+3. The fallback paths in the staged `index.html` are changed from
+   `../figures/` to `figures/`.
+
+The rewrite happens only in the temporary artifact. Local development therefore
+continues to use the repository-root server described above, while the deployed
+site is available at:
+
+<https://haydn-s.github.io/sourcing-data-project-1/>
+
+To enable the first deployment, open the repository's **Settings → Pages** and
+select **GitHub Actions** as the source. No Python runs during deployment: the
+workflow serves the committed files in `web/data/`, so regenerate and commit
+those files before publishing updated analysis.
 
 ## Files
 
