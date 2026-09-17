@@ -1,7 +1,7 @@
 """Export processed data into JSON files for the web UI.
 
 Creates `web/data/<category>.json` containing each processed dataset assigned
-to one of four categories so the static HTML can load and render plots.
+to one of five categories so the static HTML can load and render plots.
 """
 from pathlib import Path
 import json
@@ -33,6 +33,9 @@ CATEGORY_MAP = {
     # of 20 metros is not a time series it could draw.
     "regional_markets": [
         "metro_price_growth.csv",
+    ],
+    "housing_supply": [
+        "housing_supply.csv",
     ],
 }
 

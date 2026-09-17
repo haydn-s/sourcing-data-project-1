@@ -238,8 +238,8 @@ a { color: var(--cool); }
 /* The supply chart opens the Housing tab, above its per-series cards. */
 .supply-card { margin-bottom: 1.5rem; }
 /* Two classes: the explorer's later `.chart { min-height: 260px }` would otherwise
-   win, and Plotly autosizes the four panels down to that. */
-.chart.supply-chart { min-height: 680px; }
+   win, and Plotly autosizes the chart down to that. */
+.chart.supply-chart { min-height: 380px; }
 .geo-trends-chart { margin-top: 1rem; min-height: 320px; }
 
 .takeaway-grid {

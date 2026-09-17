@@ -13,8 +13,12 @@ prices and rates into what a 25-34 year old household actually experiences:
   growth_pct /          home price growth in each Case-Shiller metro, nominal
   real_growth_pct       and inflation-adjusted, for the regional comparison
 
+  listings_index /      homes for sale and single-family starts, each as a
+  starts_index          share of its 2017-2019 average, for the supply chart
+
 Writes affordability.csv, payment_decomposition.csv,
-decomposition_sensitivity.csv and metro_price_growth.csv to data/processed/.
+decomposition_sensitivity.csv, metro_price_growth.csv and housing_supply.csv to
+data/processed/.
 """
 
 import sys
@@ -365,6 +369,31 @@ def complete_year_means(series: pd.Series) -> pd.Series:
     return s.groupby(s.index.year).mean()[counts == 12]
 
 
+def housing_supply(monthly: pd.DataFrame,
+                   baseline=SUPPLY_BASELINE_YEARS) -> pd.DataFrame:
+    """Homes for sale against homes being built, each indexed to its own baseline.
+
+    The two measures share no unit -- a count of listings, and starts at an
+    annual rate -- so neither can sit on the other's axis. Indexing each to its
+    2017-2019 average (= 100) asks the same question of both: how far from
+    normal was it? Calendar-year means over complete years only, from the first
+    year both series cover.
+    """
+    b0, b1 = baseline
+    listings = complete_year_means(monthly["ACTLISCOUUS"])
+    starts = complete_year_means(monthly["HOUST1F"])
+    out = pd.DataFrame({"active_listings": listings,
+                        "single_family_starts": starts}).dropna()
+    # DatetimeIndex.year is int32; a year read back from CSV is int64.
+    out.index = out.index.astype("int64")
+    out.index.name = "year"
+    for raw, index in (("active_listings", "listings_index"),
+                       ("single_family_starts", "starts_index")):
+        out[index] = out[raw] / out.loc[b0:b1, raw].mean() * 100
+    out["baseline_start"], out["baseline_end"] = b0, b1
+    return out
+
+
 def supply_summary(monthly: pd.DataFrame,
                    shock=(SHOCK_START_YEAR, SHOCK_END_YEAR),
                    baseline=SUPPLY_BASELINE_YEARS) -> dict:
@@ -427,6 +456,12 @@ def main() -> int:
         flip = blames.ne(blames.shift()).cumsum().max() > 1
         print(f"  {label:<8} blames prices in {(blames == 'price').sum():>2}/{len(blames)} "
               f"anchors{'  (dominant factor FLIPS)' if flip else ''}")
+
+    monthly = pd.read_csv(PROCESSED / "fred_monthly.csv", index_col="date", parse_dates=["date"])
+    supply = housing_supply(monthly)
+    supply.to_csv(PROCESSED / "housing_supply.csv")
+    print(f"housing_supply.csv     {supply.shape[0]:>5} years ({supply.index.min()}-{supply.index.max()}), "
+          f"indexed to {SUPPLY_BASELINE_YEARS[0]}-{SUPPLY_BASELINE_YEARS[1]}")
 
     metro_path = PROCESSED / "metro_hpi_monthly.csv"
     if not metro_path.exists():

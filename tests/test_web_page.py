@@ -657,11 +657,15 @@ def _tab_intro(flat, tab):
     return m.group(1)
 
 
-def test_supply_chart_draws_only_downloaded_series():
+def test_supply_chart_reads_the_pipeline_export():
+    """The index is computed in features.housing_supply, like the regional
+    ranking; main.js only draws it. No year may be typed into the chart: the
+    baseline arrives with the data and the shock years come from the config-
+    tested constants."""
     body = _js_function((WEB / "main.js").read_text(), "renderSupplyChart")
-    drawn = set(re.findall(r"id: '([A-Z0-9]+)'", body))
-    assert drawn, "renderSupplyChart no longer names its series"
-    assert drawn <= set(FRED_SERIES), f"supply chart series not in the pipeline: {sorted(drawn - set(FRED_SERIES))}"
+    assert "data/housing_supply.json" in body
+    years = re.findall(r"\b(?:19|20)\d{2}\b", re.sub(r"/\*.*?\*/", "", body, flags=re.S))
+    assert not years, f"renderSupplyChart hardcodes years: {years}"
 
 
 @pytest.mark.requires_data

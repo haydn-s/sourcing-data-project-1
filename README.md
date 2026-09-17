@@ -350,8 +350,8 @@ No network required — the suite runs against the committed CSVs. Six groups:
 
 ### Generated tables
 
-`python src/run_all.py` writes ten tables to `data/processed/`. The first five
-are cleaned sources; the last five are the analysis.
+`python src/run_all.py` writes eleven tables to `data/processed/`. The first five
+are cleaned sources; the last six are the analysis.
 
 | File | Shape | What it holds |
 |---|---|---|
@@ -364,6 +364,7 @@ are cleaned sources; the last five are the analysis.
 | `affordability.csv` | 43 × 44 | The engineered features — payment, required income, the index, rent vs own |
 | `payment_decomposition.csv` | 43 × 13 | Price/rate/interaction split against the 2021 base year |
 | `decomposition_sensitivity.csv` | 17 × 25 | The same split re-run from all 17 anchors, nominal and real |
+| `housing_supply.csv` | 9 × 7 | Active listings and single-family starts by year, each indexed to its 2017–2019 average |
 | `metro_price_growth.csv` | 20 × 9 | Each metro's home price growth from 2021 to the latest complete year, nominal and real, ranked |
 
 ### Repository layout

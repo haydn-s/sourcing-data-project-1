@@ -477,63 +477,71 @@ async function renderRegionalComparison() {
   Plotly.newPlot(chartEl, [trace], layout, { responsive: true, displayModeBar: false });
 }
 
-/* Four stacked panels, one measure and one axis each, sharing a date axis so
- * the 2021-2023 shading lines up. The top two are the existing stock for sale,
- * the bottom two the construction response; in the shock they moved in
- * opposite directions, which is the point of showing them together. */
-const SUPPLY_START_YEAR = 2000;
-
+/* Homes for sale against homes being built, one line each. They share no
+ * unit, so features.housing_supply indexes each to its own 2017-2019 average;
+ * the baseline years and every value arrive with the data. Labels sit on the
+ * lines at the start of the shock, where the two are furthest apart, so the
+ * chart reads without a legend. */
 async function renderSupplyChart() {
   const chartEl = document.getElementById('supply-chart');
   if (!chartEl) return;
 
-  const rows = findBundle(await fetchJson('data/macro_trends.json'), 'fred_monthly.csv')
-    .filter(row => row.date >= `${SUPPLY_START_YEAR}-01-01`);
-  const panels = [
-    {id: 'ACTLISCOUUS', title: 'Homes listed for sale (thousands, Realtor.com, from July 2016)', scale: 1 / 1000, color: ACCENT, format: ',.0f'},
-    {id: 'RHVRUSQ156N', title: 'Homeowner vacancy rate (%)', scale: 1, color: ACCENT, format: '.1f'},
-    {id: 'HOUST1F', title: 'Single-family housing starts (thousands, annual rate)', scale: 1, color: COOL, format: ',.0f'},
-    {id: 'MSACSR', title: "Months' supply of new homes for sale", scale: 1, color: COOL, format: '.1f'}
-  ];
-  if (!rows.length || !panels.every(panel => rows.some(row => row[panel.id] != null))) {
+  const rows = findBundle(await fetchJson('data/housing_supply.json'), 'housing_supply.csv');
+  if (!rows.length) {
     chartEl.classList.add('chart-empty');
-    chartEl.textContent = 'Supply series not present in the exported data — run python src/run_all.py';
+    chartEl.textContent = 'Supply data not present in the export — run python src/run_all.py';
     return;
   }
+  const {baseline_start: baseStart, baseline_end: baseEnd} = rows[0];
+  const lines = [
+    {index: 'starts_index', raw: 'single_family_starts', name: 'Single-family homes started',
+     color: COOL, hover: '%{customdata:,.0f} thousand a year', above: true},
+    {index: 'listings_index', raw: 'active_listings', name: 'Homes listed for sale',
+     color: ACCENT, hover: '%{customdata:,.0f} listings', above: false}
+  ];
 
-  const gap = 0.07;
-  const height = (1 - gap * (panels.length - 1)) / panels.length;
+  const traces = lines.map(line => ({
+    x: rows.map(row => row.year),
+    y: rows.map(row => row[line.index]),
+    customdata: rows.map(row => row[line.raw]),
+    name: line.name,
+    mode: 'lines+markers',
+    line: {color: line.color, width: 3},
+    marker: {color: line.color, size: 7},
+    hovertemplate: `%{x}: <b>%{y:.0f}</b> (${line.hover})<extra>${line.name}</extra>`
+  }));
+
+  const labelRow = rows.find(row => row.year === SHOCK_START_YEAR);
+  const peak = Math.max(...lines.map(line => Math.max(...rows.map(row => row[line.index]))));
   const layout = {
-    height: 680,
-    margin: {t: 26, r: 18, b: 40, l: 64},
+    height: 380,
+    margin: {t: 34, r: 20, b: 36, l: 60},
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
-    font: {color: INK, size: 11, family: getComputedStyle(document.body).fontFamily},
+    font: {color: INK, size: 12, family: getComputedStyle(document.body).fontFamily},
     showlegend: false,
     hoverlabel: {bgcolor: '#ffffff', bordercolor: GRID, font: {color: INK}},
-    xaxis: {type: 'date', anchor: `y${panels.length}`, gridcolor: GRID, linecolor: GRID, automargin: true},
-    shapes: [{type: 'rect', xref: 'x', yref: 'paper', layer: 'below', line: {width: 0},
-      x0: `${SHOCK_START_YEAR}-01-01`, x1: `${SHOCK_END_YEAR}-12-31`, y0: 0, y1: 1,
-      fillcolor: 'rgba(193,68,46,0.07)'}],
-    annotations: []
+    xaxis: {tickmode: 'linear', dtick: 1, showgrid: false, linecolor: GRID, fixedrange: true},
+    yaxis: {title: {text: `Percent of ${baseStart}–${baseEnd} average`, font: {size: 11, color: MUTED}},
+            range: [0, Math.ceil(peak / 20) * 20 + 10], dtick: 50, gridcolor: GRID,
+            zeroline: false, fixedrange: true, automargin: true},
+    shapes: [
+      {type: 'rect', xref: 'x', yref: 'paper', layer: 'below', line: {width: 0},
+       x0: SHOCK_START_YEAR - 0.5, x1: SHOCK_END_YEAR + 0.5, y0: 0, y1: 1, fillcolor: 'rgba(193,68,46,0.07)'},
+      {type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: 100, layer: 'below',
+       line: {color: MUTED, width: 1, dash: 'dash'}}
+    ],
+    annotations: [
+      {text: 'Rate shock', xref: 'x', yref: 'paper', x: (SHOCK_START_YEAR + SHOCK_END_YEAR) / 2, y: 1,
+       yanchor: 'bottom', showarrow: false, font: {size: 11, color: MUTED}},
+      ...(labelRow ? lines.map(line => ({
+        text: `<b>${line.name}: ${Math.round(labelRow[line.index])}</b>`,
+        x: SHOCK_START_YEAR, y: labelRow[line.index], xanchor: 'center',
+        yanchor: line.above ? 'bottom' : 'top', yshift: line.above ? 10 : -10,
+        showarrow: false, font: {size: 12, color: line.color}
+      })) : [])
+    ]
   };
-
-  const traces = panels.map((panel, i) => {
-    const top = 1 - i * (height + gap);
-    const axis = i === 0 ? 'yaxis' : `yaxis${i + 1}`;
-    layout[axis] = {domain: [top - height, top], gridcolor: GRID, zeroline: false, linecolor: GRID, automargin: true};
-    layout.annotations.push({text: `<b>${panel.title}</b>`, xref: 'paper', yref: 'paper', x: 0, y: top,
-      xanchor: 'left', yanchor: 'bottom', showarrow: false, font: {size: 11, color: INK}});
-    const points = rows.filter(row => row[panel.id] != null);
-    return {
-      x: points.map(row => row.date),
-      y: points.map(row => row[panel.id] * panel.scale),
-      yaxis: i === 0 ? 'y' : `y${i + 1}`,
-      mode: 'lines',
-      line: {color: panel.color, width: 2},
-      hovertemplate: `%{x|%b %Y}<br><b>%{y:${panel.format}}</b><extra></extra>`
-    };
-  });
 
   Plotly.newPlot(chartEl, traces, layout, {responsive: true, displayModeBar: false});
 }

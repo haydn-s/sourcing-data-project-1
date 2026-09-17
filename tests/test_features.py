@@ -18,6 +18,7 @@ from features import (
     decompose_sensitivity,
     latest_complete_year,
     complete_year_means,
+    housing_supply,
     metro_price_growth,
     supply_summary,
     monthly_payment,
@@ -399,3 +400,17 @@ def test_supply_summary_reads_both_halves_of_the_claim():
     assert (s["starts_peak_year"], s["starts_last_higher_year"]) == (2021, 2006)
     assert s["starts_highest_since_peak"] == pytest.approx(1100.0)
     assert (s["new_home_supply_start"], s["new_home_supply_end"]) == (5.0, 8.0)
+
+
+def test_housing_supply_indexes_each_series_to_its_own_baseline():
+    listings = {2017: 1000.0, 2018: 1200.0, 2019: 800.0, 2021: 500.0}
+    starts = {2016: 50.0, 2017: 90.0, 2018: 100.0, 2019: 110.0, 2021: 130.0}
+    monthly = pd.DataFrame({"ACTLISCOUUS": _monthly(listings), "HOUST1F": _monthly(starts)})
+    out = housing_supply(monthly, baseline=(2017, 2019))
+    # 2016 has starts but no listings, so both lines begin together in 2017.
+    assert list(out.index) == [2017, 2018, 2019, 2021]
+    assert out.loc[2017:2019, "listings_index"].mean() == pytest.approx(100.0)
+    assert out.loc[2017:2019, "starts_index"].mean() == pytest.approx(100.0)
+    assert out.loc[2021, "listings_index"] == pytest.approx(50.0)
+    assert out.loc[2021, "starts_index"] == pytest.approx(130.0)
+    assert set(out["baseline_start"]) == {2017} and set(out["baseline_end"]) == {2019}
