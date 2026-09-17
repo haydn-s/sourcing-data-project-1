@@ -1,7 +1,7 @@
 """Export processed data into JSON files for the web UI.
 
 Creates `web/data/<category>.json` containing each processed dataset assigned
-to one of three categories so the static HTML can load and render plots.
+to one of five categories so the static HTML can load and render plots.
 """
 from pathlib import Path
 import json
@@ -27,6 +27,15 @@ CATEGORY_MAP = {
     "consumer_debt": [
         "payment_decomposition.csv",
         "decomposition_sensitivity.csv",
+    ],
+    # Its own bundle rather than a fourth table in housing_market: the explorer
+    # merges every column it loads into one series map, and a cross-section
+    # of 20 metros is not a time series it could draw.
+    "regional_markets": [
+        "metro_price_growth.csv",
+    ],
+    "housing_supply": [
+        "housing_supply.csv",
     ],
 }
 

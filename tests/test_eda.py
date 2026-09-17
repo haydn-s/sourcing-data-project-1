@@ -115,3 +115,13 @@ def test_findings_print_without_error(capsys, monkeypatch):
     assert [line.strip()[:2] for line in out.splitlines()
             if line.strip()[:2] in {f"{i}." for i in range(1, 7)}] == \
         [f"{i}." for i in range(1, 7)]
+
+
+@pytest.mark.requires_data
+def test_supply_findings_print_without_error(capsys):
+    csv = eda.PROCESSED / "fred_monthly.csv"
+    if not csv.exists():
+        pytest.skip("run `python src/run_all.py` first")
+    eda.print_supply_findings(pd.read_csv(csv, index_col="date", parse_dates=["date"]))
+    out = capsys.readouterr().out
+    assert "SUPPLY CHECK" in out and "construction did respond" in out

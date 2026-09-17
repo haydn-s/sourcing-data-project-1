@@ -17,8 +17,15 @@ from features import (
     decompose_payment_change,
     decompose_sensitivity,
     latest_complete_year,
+    complete_year_means,
+    housing_supply,
+    inflation_summary,
+    metro_price_growth,
+    supply_summary,
     monthly_payment,
     piti,
+    real_change,
+    years_to_save_moving,
 )
 
 
@@ -89,6 +96,7 @@ def panel():
             "all_median_current": [56_000.0, 68_700, 68_010, 70_780, 83_730,
                                    np.nan, np.nan],
             "CPIAUCSL": [237.0, 255.7, 258.8, 271.0, 314.0, 322.0, 330.0],
+            "cpi_inflation": [0.1, 1.8, 1.2, 4.7, 3.0, 2.5, 2.4],
             "hor_under_35": [34.7, 36.7, 39.2, 38.2, 37.1, 37.1, 36.0],
             "hor_all": [63.7, 64.6, 66.6, 65.5, 65.6, 65.2, 64.9],
             "SLOAS": [1_300_000.0] * n,
@@ -269,3 +277,195 @@ def test_latest_complete_year_raises_when_nothing_is_complete(affordability):
     d["is_partial_year"] = True
     with pytest.raises(ValueError, match="no complete year"):
         latest_complete_year(d)
+
+
+# ------------------------------------------------------- regional price growth
+
+def _metro_frame(values_by_year, months=12):
+    """Monthly metro indices from per-year levels, one column per series id.
+
+    `values_by_year` maps a series id to {year: level}. The level is repeated
+    for each month unless it is a list, which supplies the months directly --
+    that is how a seasonal pattern or a missing month gets in.
+    """
+    frames = {}
+    for sid, by_year in values_by_year.items():
+        points = {}
+        for year, level in by_year.items():
+            monthly = level if isinstance(level, list) else [level] * months
+            for m, v in enumerate(monthly, start=1):
+                points[pd.Timestamp(year=year, month=m, day=1)] = v
+        frames[sid] = pd.Series(points, dtype=float)
+    return pd.DataFrame(frames).sort_index()
+
+
+@pytest.fixture
+def cpi():
+    return pd.Series({2021: 100.0, 2022: 105.0, 2023: 110.0, 2024: 115.0, 2025: 120.0})
+
+
+def test_metro_growth_compares_annual_means_not_single_months(cpi):
+    """The indices are not seasonally adjusted. A June-to-June or January-to-
+    January comparison would pick up the season; the annual mean cancels it."""
+    seasonal = [90.0] * 6 + [110.0] * 6          # mean 100, but no month is 100
+    metros = _metro_frame({"AAA": {2021: seasonal, 2025: [v * 1.5 for v in seasonal]}})
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert out.loc["AAA", "index_base"] == pytest.approx(100.0)
+    assert out.loc["AAA", "growth_pct"] == pytest.approx(50.0)
+
+
+def test_metro_real_growth_is_zero_when_prices_only_track_inflation(cpi):
+    metros = _metro_frame({"AAA": {2021: 200.0, 2025: 240.0}})   # +20%, CPI +20%
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert out.loc["AAA", "growth_pct"] == pytest.approx(20.0)
+    assert out.loc["AAA", "real_growth_pct"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_metro_ranking_runs_fastest_to_slowest_and_deflating_cannot_reorder_it(cpi):
+    metros = _metro_frame({
+        "SLOW": {2021: 100.0, 2025: 110.0},
+        "FAST": {2021: 100.0, 2025: 150.0},
+        "MID":  {2021: 100.0, 2025: 125.0},
+    })
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert list(out.index) == ["FAST", "MID", "SLOW"]
+    assert list(out["rank"]) == [1, 2, 3]
+    assert list(out["growth_pct"]) == sorted(out["growth_pct"], reverse=True)
+    assert out.loc["SLOW", "real_growth_pct"] < 0 < out.loc["FAST", "real_growth_pct"]
+
+
+def test_metro_names_come_from_config(cpi):
+    metros = _metro_frame({"MIXRNSA": {2021: 100.0, 2025: 110.0},
+                           "UNKNOWN": {2021: 100.0, 2025: 110.0}})
+    out = metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+    assert out.loc["MIXRNSA", "metro"] == "Miami"
+    assert out.loc["UNKNOWN", "metro"] == "UNKNOWN"     # falls back to the id
+
+
+def test_metro_window_ends_at_the_last_year_every_metro_completed(cpi):
+    """2025 is complete for one metro but the other is still a month short, so
+    the default window must stop at 2024 rather than rank the two on different
+    spans -- the same bug latest_complete_year guards for the national panel."""
+    metros = _metro_frame({
+        "AAA": {2021: 100.0, 2024: 120.0, 2025: 130.0},
+        "BBB": {2021: 100.0, 2024: 110.0, 2025: [115.0] * 11 + [np.nan]},
+    })
+    out = metro_price_growth(metros, cpi, base_year=2021)
+    assert set(out["end_year"]) == {2024}
+    assert out.loc["AAA", "growth_pct"] == pytest.approx(20.0)
+
+
+def test_metro_growth_rejects_an_incomplete_base_year(cpi):
+    metros = _metro_frame({"AAA": {2021: [100.0] * 6 + [np.nan] * 6, 2025: 130.0}})
+    with pytest.raises(ValueError, match="base year 2021"):
+        metro_price_growth(metros, cpi, base_year=2021, end_year=2025)
+
+
+def test_metro_growth_rejects_a_year_with_no_cpi(cpi):
+    metros = _metro_frame({"AAA": {2021: 100.0, 2025: 130.0}})
+    with pytest.raises(ValueError, match="no CPI"):
+        metro_price_growth(metros, cpi.drop(2025), base_year=2021, end_year=2025)
+
+
+# ----------------------------------------------------------------- supply check
+
+def _monthly(values_by_year):
+    """Monthly series from per-year levels; a list supplies the months directly."""
+    points = {}
+    for year, level in values_by_year.items():
+        months = level if isinstance(level, list) else [level] * 12
+        for m, v in enumerate(months, start=1):
+            points[pd.Timestamp(year=year, month=m, day=1)] = v
+    return pd.Series(points, dtype=float)
+
+
+def test_complete_year_means_drop_short_years():
+    s = _monthly({2020: 10.0, 2021: [20.0] * 11 + [np.nan]})
+    out = complete_year_means(s)
+    assert list(out.index) == [2020]
+    assert out[2020] == pytest.approx(10.0)
+
+
+def test_supply_summary_reads_both_halves_of_the_claim():
+    years = range(2004, 2024)
+    starts = {y: 1000.0 for y in years}
+    starts.update({2005: 1500.0, 2006: 1300.0, 2021: 1200.0, 2022: 1100.0})
+    monthly = pd.DataFrame({
+        "ACTLISCOUUS": _monthly({**{y: 1000.0 for y in (2017, 2018, 2019)},
+                                 **{y: 500.0 for y in (2021, 2022, 2023)}}),
+        "RHVRUSQ156N": _monthly({**{y: 2.0 for y in years}, 2023: 0.8}),
+        "HOUST1F": _monthly(starts),
+        "MSACSR": _monthly({2021: 5.0, 2023: 8.0}),
+    })
+    s = supply_summary(monthly, shock=(2021, 2023), baseline=(2017, 2019))
+    assert s["listings_ratio"] == pytest.approx(0.5)
+    assert (s["vacancy_first_year"], s["vacancy_low_year"]) == (2004, 2023)
+    # 2021 beats every year back to 2006, which is itself higher: "most since 2006".
+    assert (s["starts_peak_year"], s["starts_last_higher_year"]) == (2021, 2006)
+    assert s["starts_highest_since_peak"] == pytest.approx(1100.0)
+    assert (s["new_home_supply_start"], s["new_home_supply_end"]) == (5.0, 8.0)
+
+
+def test_housing_supply_indexes_each_series_to_its_own_baseline():
+    listings = {2017: 1000.0, 2018: 1200.0, 2019: 800.0, 2021: 500.0}
+    starts = {2016: 50.0, 2017: 90.0, 2018: 100.0, 2019: 110.0, 2021: 130.0}
+    monthly = pd.DataFrame({"ACTLISCOUUS": _monthly(listings), "HOUST1F": _monthly(starts)})
+    out = housing_supply(monthly, baseline=(2017, 2019))
+    # 2016 has starts but no listings, so both lines begin together in 2017.
+    assert list(out.index) == [2017, 2018, 2019, 2021]
+    assert out.loc[2017:2019, "listings_index"].mean() == pytest.approx(100.0)
+    assert out.loc[2017:2019, "starts_index"].mean() == pytest.approx(100.0)
+    assert out.loc[2021, "listings_index"] == pytest.approx(50.0)
+    assert out.loc[2021, "starts_index"] == pytest.approx(130.0)
+    assert set(out["baseline_start"]) == {2017} and set(out["baseline_end"]) == {2019}
+
+
+# -------------------------------------------------------------------- inflation
+
+def test_real_mortgage_rate_subtracts_that_years_inflation(affordability):
+    assert affordability.loc[2021, "real_mortgage_rate"] == pytest.approx(2.96 - 4.7)
+    assert affordability.loc[2024, "real_mortgage_rate"] == pytest.approx(6.72 - 3.0)
+
+
+def test_real_change_is_zero_when_a_series_only_tracks_cpi():
+    df = pd.DataFrame({"x": [100.0, 150.0], "cpi": [200.0, 300.0]}, index=[2000, 2010])
+    assert real_change(df, "x", 2000, 2010) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_moving_target_reduces_to_the_static_measure_when_nothing_moves():
+    """$400k at 20% down is $80k; 10% of $90k a year is $9k, so 8.89 years --
+    the same arithmetic as years_to_save_down."""
+    assert years_to_save_moving(400_000, 90_000, 0, 0, 0) == pytest.approx(80_000 / 9_000)
+
+
+def test_moving_target_takes_longer_when_prices_outrun_savings():
+    static = years_to_save_moving(400_000, 90_000, 0, 0, 0)
+    both_track_inflation = years_to_save_moving(400_000, 90_000, 0.03, 0.03, 0.03)
+    savings_earn_nothing = years_to_save_moving(400_000, 90_000, 0.03, 0.03, 0.0)
+    prices_outrun_incomes = years_to_save_moving(400_000, 90_000, 0.04, 0.03, 0.03)
+    # Everything growing together, savings included, is the static case scaled up.
+    assert both_track_inflation == pytest.approx(static, abs=0.35)
+    assert savings_earn_nothing > both_track_inflation
+    assert prices_outrun_incomes > both_track_inflation
+
+
+def test_inflation_summary_deflates_against_the_same_cpi_as_the_real_columns(panel):
+    # The summary reads the configured years (2005, 2021, 2023), so fill the
+    # fixture's gaps into a continuous annual panel first.
+    years = range(2005, 2027)
+    numeric = panel.drop(columns=["is_partial_year", "months_observed"])
+    full = numeric.reindex(years).astype(float).interpolate(limit_direction="both")
+    full["is_partial_year"] = [y == 2026 for y in years]
+    full["months_observed"] = [8 if y == 2026 else 12 for y in years]
+    affordability = build_affordability(full)
+    deflators = pd.DataFrame({
+        "CUSR0000SA0L2": affordability["cpi"] * 0.9,
+        "CSUSHPINSA": affordability["median_price"],
+    }, index=affordability.index)
+    s = inflation_summary(affordability, deflators)
+    base, last = 2021, s["latest_year"]
+    expected = ((affordability.loc[last, "median_price_real2024"]
+                 / affordability.loc[base, "median_price_real2024"]) - 1) * 100
+    assert s["price_real_since_shock"] == pytest.approx(expected)
+    # A deflator proportional to CPI must give the same real rent change.
+    assert s["rent_real_less_shelter"] == pytest.approx(s["rent_real_cpi"])

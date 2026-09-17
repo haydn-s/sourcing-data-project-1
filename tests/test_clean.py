@@ -311,3 +311,20 @@ def test_fred_series_is_indexed_by_observation_date(tmp_path, monkeypatch):
     s = clean.load_fred_series("TEST")
     assert s.index[0] == pd.Timestamp("2020-01-01")
     assert s.name == "TEST"
+
+
+def test_metro_frame_leaves_a_late_publisher_missing(tmp_path, monkeypatch):
+    """In this pull, Detroit trails the other 19 metros by a month. Forward-filling
+    it, as the national panel does for quarterly series, would invent a value
+    and hand features a 'complete' year that is not."""
+    monkeypatch.setattr(clean, "RAW_FRED", tmp_path)
+    monkeypatch.setattr(clean, "METRO_HPI_SERIES", {"ONTIME": "On time", "LATE": "Late"})
+    (tmp_path / "ONTIME.csv").write_text(
+        "observation_date,ONTIME\n2026-04-01,1.0\n2026-05-01,2.0\n2026-06-01,3.0\n")
+    (tmp_path / "LATE.csv").write_text(
+        "observation_date,LATE\n2026-04-01,10.0\n2026-05-01,20.0\n")
+    df = clean.build_metro_frame()
+    assert list(df.columns) == ["ONTIME", "LATE"]
+    assert df.index.name == "date"
+    assert df.loc["2026-06-01", "ONTIME"] == 3.0
+    assert pd.isna(df.loc["2026-06-01", "LATE"])

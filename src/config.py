@@ -18,20 +18,32 @@ FIGURES = ROOT / "figures"
 FRED_SERIES = {
     # Housing market
     "MORTGAGE30US": ("30-Year Fixed Mortgage Rate", "weekly", "percent"),
-    "MSPUS":        ("Median Sales Price of Houses Sold", "quarterly", "usd"),
-    "ASPUS":        ("Average Sales Price of Houses Sold", "quarterly", "usd"),
+    "MSPUS":        ("Median Sales Price of New Houses Sold", "quarterly", "usd"),
+    "ASPUS":        ("Average Sales Price of New Houses Sold", "quarterly", "usd"),
     "CSUSHPINSA":   ("Case-Shiller U.S. National Home Price Index", "monthly", "index"),
     "RHORUSQ156N":  ("Homeownership Rate (all ages)", "quarterly", "percent"),
     # Contract rent: what a sitting tenant pays, including renewals. Pairs with
     # the Census asking-rent series below, which is what a *mover* faces.
     "CUSR0000SEHA": ("CPI: Rent of Primary Residence, SA", "monthly", "index"),
     "G160651A027NBEA": ("Federal HUD Outlays", "annual", "usd_billions"),
+    # Supply: whether there were homes to buy. Listings and the vacancy rate
+    # measure the existing stock for sale; starts and the months' supply of new
+    # homes measure the construction response. The story needs both, because in
+    # 2021-2023 they moved in opposite directions.
+    "ACTLISCOUUS":  ("Active Listing Count (Realtor.com)", "monthly", "count"),
+    "RHVRUSQ156N":  ("Homeowner Vacancy Rate", "quarterly", "percent"),
+    "HOUST1F":      ("Single-Family Housing Starts, SAAR", "monthly", "thousands"),
+    "MSACSR":       ("Monthly Supply of New Houses", "monthly", "months"),
     # Macro backdrop
     "PRIME":        ("Bank Prime Loan Rate", "irregular", "percent"),
     "DGS10":        ("10-Year Treasury Constant Maturity", "daily", "percent"),
     "DGS30":        ("30-Year Treasury Constant Maturity", "daily", "percent"),
     "GDP":          ("Gross Domestic Product", "quarterly", "usd_billions"),
     "CPIAUCSL":     ("CPI-U, All Items, SA", "monthly", "index"),
+    # A robustness check on the deflator, not a replacement for it. Shelter is
+    # about a third of CPI, so deflating house prices and rents by the headline
+    # index partly deflates housing by itself.
+    "CUSR0000SA0L2": ("CPI-U, All Items Less Shelter, SA", "monthly", "index"),
     "UNRATE":       ("Unemployment Rate", "monthly", "percent"),
     "POPTHM":       ("U.S. Population", "monthly", "thousands"),
     # Household balance sheet
@@ -39,6 +51,37 @@ FRED_SERIES = {
     "MEHOINUSA646N": ("Nominal Median Household Income", "annual", "usd_nominal"),
     "SLOAS":         ("Student Loans Owned and Securitized", "quarterly", "usd_millions"),
     "CCLACBW027SBOG": ("Credit Card Loans, All Commercial Banks", "weekly", "usd_billions"),
+}
+
+# --- Regional home prices (also from FRED) ----------------------------------
+# The metro members of the S&P Cotality Case-Shiller 20-City Composite (formerly
+# S&P CoreLogic), not seasonally adjusted to match CSUSHPINSA above. Kept apart
+# from FRED_SERIES because these are a cross-section of one measure, not
+# national series for the monthly panel. The fixed 20-metro universe is the
+# point: the page ranks every member rather than picking the cities that fit
+# a story.
+# id -> metro name as the chart labels it
+METRO_HPI_SERIES = {
+    "ATXRNSA": "Atlanta",
+    "BOXRNSA": "Boston",
+    "CRXRNSA": "Charlotte",
+    "CHXRNSA": "Chicago",
+    "CEXRNSA": "Cleveland",
+    "DAXRNSA": "Dallas",
+    "DNXRNSA": "Denver",
+    "DEXRNSA": "Detroit",
+    "LVXRNSA": "Las Vegas",
+    "LXXRNSA": "Los Angeles",
+    "MIXRNSA": "Miami",
+    "MNXRNSA": "Minneapolis",
+    "NYXRNSA": "New York",
+    "PHXRNSA": "Phoenix",
+    "POXRNSA": "Portland",
+    "SDXRNSA": "San Diego",
+    "SFXRNSA": "San Francisco",
+    "SEXRNSA": "Seattle",
+    "TPXRNSA": "Tampa",
+    "WDXRNSA": "Washington, DC",
 }
 
 FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
@@ -107,6 +150,14 @@ HOR_BASE_YEAR = 1994         # first year of Census HVS Table 19
 # Baseline year for the price-vs-rate counterfactual decomposition.
 DECOMP_BASE_YEAR = SHOCK_START_YEAR
 
+# Start of the regional price-growth window. It runs to the latest year every
+# metro has a full 12 months for, so a year-to-date average never sets a rank.
+METRO_GROWTH_BASE_YEAR = SHOCK_START_YEAR
+
+# Pre-pandemic baseline for the supply check. Active listings (ACTLISCOUUS) only
+# start in July 2016, so 2017-2019 are the full years available before COVID.
+SUPPLY_BASELINE_YEARS = (2017, 2019)
+
 # Base years for the decomposition robustness check. Anchoring on 2021 -- the
 # all-time low in mortgage rates -- is the choice most favourable to a "rates
 # did it" reading, so we re-run the split from every anchor across a 20-year
@@ -117,7 +168,7 @@ DECOMP_SENSITIVITY_BASE_YEARS = tuple(range(2005, SHOCK_START_YEAR + 1))
 
 # Index base for the price-vs-payment chart. Indexing at 2015 made price and
 # payment look wildly divergent; indexing at 2005 shows them ending up in almost
-# the same place (+73% vs +80%). The divergence is real but it is a *post-2021*
+# the same place through 2025 (+76% vs +86%). The divergence is real but it is a *post-2021*
 # phenomenon, so the chart runs the full window and shades the shock rather than
 # choosing the base that flatters the claim.
 INDEX_BASE_YEAR = 2005

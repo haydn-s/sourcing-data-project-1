@@ -74,7 +74,8 @@ a { color: var(--cool); }
 
 /* ---------------------------------------------------------------- banner -- */
 .banner {
-  margin: 1rem auto; max-width: 1080px;
+  /* Same measure as .wrap, with a gutter so it never touches the screen edge. */
+  margin: 1rem auto; max-width: min(1080px, calc(100% - 3rem));
   padding: 0.85rem 1.1rem;
   background: #fff8e6; border-left: 4px solid #e0a416; border-radius: 0 6px 6px 0;
   font-size: 0.92rem;
@@ -158,15 +159,138 @@ a { color: var(--cool); }
 }
 
 /* ------------------------------------------------------------------ tabs -- */
-.tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.75rem; }
-.tab-btn {
-  padding: 0.5rem 0.95rem; border: 1px solid var(--grid); border-radius: 999px;
+.tabs,
+.story-figure-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+.tab-btn,
+.story-figure-btn {
+  padding: 0.6rem 0.95rem; border: 1px solid var(--grid); border-radius: 999px;
   background: #fff; color: var(--ink-soft); font: inherit; font-size: 0.9rem;
-  cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s;
+  cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s;
 }
-.tab-btn:hover { border-color: var(--cool); color: var(--ink); }
-.tab-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
-.tab-panel[hidden] { display: none; }
+.tab-btn:hover,
+.story-figure-btn:hover { border-color: var(--cool); color: var(--ink); transform: translateY(-1px); }
+.tab-btn.is-active,
+.story-figure-btn.is-active { background: var(--cool); border-color: var(--cool); color: #fff; }
+.tab-panel[hidden],
+.story-figure-panel[hidden] { display: none; }
+
+.story-figure-shell {
+  padding: 1rem; border: 1px solid var(--grid); border-radius: 18px;
+  background: linear-gradient(180deg, #f7f9fc 0%, #ffffff 100%);
+}
+.story-figure-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem;
+}
+.story-figure-kicker {
+  margin: 0 0 0.2rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+}
+.story-figure-header h3 {
+  margin: 0; font-size: clamp(1.05rem, 2vw, 1.45rem); letter-spacing: -0.015em;
+}
+.story-figure-nav {
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+.story-figure-nav-btn {
+  border: 1px solid var(--grid); background: #fff; color: var(--ink-soft); border-radius: 999px;
+  padding: 0.55rem 0.8rem; font: inherit; cursor: pointer; transition: all 0.12s ease;
+}
+.story-figure-nav-btn:hover { border-color: var(--cool); color: var(--ink); }
+.story-figure-summary {
+  background: rgba(43,108,176,0.05); border: 1px solid rgba(43,108,176,0.13); border-left: 4px solid var(--cool);
+  color: var(--ink-soft); border-radius: 10px; padding: 0.9rem 1rem; margin-bottom: 1rem; line-height: 1.5;
+}
+.story-figure-stage {
+  background: #fff; border: 1px solid var(--grid); border-radius: 14px; padding: 1rem;
+}
+.story-figure-panel { margin: 0; }
+.story-figure-card {
+  background: #fff; border: 1px solid var(--grid); border-radius: 12px; padding: 0.75rem;
+  box-shadow: 0 14px 30px rgba(29, 36, 51, 0.04);
+}
+.story-figure-card + .story-figure-card { margin-top: 1rem; }
+.story-figure-card img {
+  display: block; width: 100%; max-height: 520px; object-fit: contain;
+  border-radius: 10px; background: #fff;
+}
+/* Not a flex container: Plotly's wrapper has no intrinsic width, so centring it
+   collapsed it to zero and drew the chart from the card's midpoint rightward,
+   off the edge of the page. The no-data message centres itself via .chart-empty. */
+.story-chart { width: 100%; min-height: 390px; }
+.story-figure-panel figcaption {
+  margin-top: 0.9rem; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5;
+}
+
+.chart-selection-detail {
+  margin-bottom: 1rem; padding: 0.8rem 1rem; border: 1px solid rgba(43,108,176,0.2);
+  border-left: 4px solid var(--cool); border-radius: 8px; background: rgba(43,108,176,0.04);
+  color: var(--ink-soft); display: flex; flex-direction: column; gap: 0.2rem;
+}
+
+.insight-card {
+  background: #fff; border: 1px solid var(--grid); border-radius: var(--radius); padding: 1.25rem;
+}
+.insight-card h3 { margin: 0 0 0.4rem; }
+.insight-card p,
+.insight-card li { color: var(--ink-soft); }
+.insight-card ul { margin: 0.75rem 0 0; padding-left: 1.2rem; }
+/* The regional chart sits under the four forces cards, illustrating Location. */
+.regional-card { margin-top: 1.5rem; }
+/* The supply chart opens the Housing tab, above its per-series cards. */
+.supply-card { margin-bottom: 1.5rem; }
+/* Two classes: the explorer's later `.chart { min-height: 260px }` would otherwise
+   win, and Plotly autosizes the chart down to that. */
+.chart.supply-chart { min-height: 380px; }
+.geo-trends-chart { margin-top: 1rem; min-height: 320px; }
+
+.takeaway-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 1rem;
+}
+.takeaway-card {
+  background: #fff; border: 1px solid var(--grid); border-radius: var(--radius); padding: 1.2rem 1.15rem;
+  box-shadow: 0 8px 18px rgba(29, 36, 51, 0.03);
+}
+.takeaway-card h3 {
+  margin: 0 0 0.5rem; font-size: 1.05rem; letter-spacing: -0.01em; color: var(--ink);
+}
+.takeaway-card p { margin: 0; color: var(--ink-soft); }
+.takeaway-card ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--ink-soft);
+}
+.takeaway-card li + li { margin-top: 0.45rem; }
+
+/* A four-column table needs ~420px; the card it sits in can be 260px. It
+   scrolls inside the card rather than widening the whole page on a phone. */
+.table-scroll { overflow-x: auto; }
+.takeaway-card { min-width: 0; }
+.data-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.9rem;
+  font-size: 0.92rem;
+  border: 1px solid var(--grid);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.data-matrix th,
+.data-matrix td {
+  border: 1px solid var(--grid);
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+.data-matrix th {
+  background: var(--bg-alt);
+  color: var(--ink);
+  font-weight: 700;
+}
+.data-matrix td { color: var(--ink-soft); }
+.matrix-summary {
+  margin-top: 0.9rem !important;
+  font-weight: 600;
+  color: var(--ink) !important;
+}
 
 /* ----------------------------------------------------------------- cards -- */
 /* min(380px, 100%) rather than a bare 380px: minmax() cannot shrink below its

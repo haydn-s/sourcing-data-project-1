@@ -1,14 +1,21 @@
 # `web/` — the static story page
 
 A single static page that leads with the analysis and keeps an interactive
-explorer underneath it:
+explorer underneath it. In page order:
 
-- **The story** — the seven figures from `figures/`, in narrative order, each
-  with the reasoning behind it. These are plain `<img>` tags, so they render
-  with no server and no JavaScript.
-- **Explore the source data** — every series the project downloads, one chart
-  per series, drawn with Plotly from the JSON in `web/data/`. This part needs
-  `fetch()`, which browsers block on `file://` URLs.
+- **The story** — six of the eight figures in `figures/`, as four reasons and a
+  result, each with the reasoning behind it. They are interactive Plotly charts
+  backed by the generated JSON, with the original PNGs kept as no-JavaScript
+  fallbacks. The two decomposition figures (03 and 07) are methodology and stay
+  in the top-level README; `tests/test_web_page.py` records why.
+- **Four forces** — location, the housing market and rates, macro trends, and
+  debt and savings, with the regional comparison of all 20 Case-Shiller metros
+  under Location.
+- **House hacking** and the **action plan** — what a buyer can do about it.
+- **Explore the source data** — every national FRED series the project
+  downloads plus the engineered measures, one chart each, drawn with Plotly from
+  the JSON in `web/data/`. This part needs `fetch()`, which browsers block on
+  `file://` URLs.
 - **Limitations** and **Sources**.
 
 ## Running it locally
@@ -21,11 +28,16 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000/web/>.
 
-The root matters: the story figures are referenced as `../figures/*.png` so that
-the repository keeps exactly one copy of each image. Serving `web/` as the root
-puts those files outside the document root and every figure 404s. Opening
-`index.html` straight off disk shows the figures but leaves the explorer empty,
-and the page says so in a banner rather than failing silently.
+The root matters: the fallback story figures are referenced as
+`../figures/*.png` so that the repository keeps exactly one copy of each image.
+Serving `web/` as the root puts those files outside the document root and every
+fallback figure 404s.
+
+Every interactive chart fetches `web/data/*.json`, and browsers block `fetch()`
+on `file://` URLs. Opened straight from disk, or when the data fails to load for
+any other reason, the page shows a notice with the command above, the story
+swaps each chart for its PNG, and the regional chart and data explorer say the
+data could not load.
 
 ## Regenerating the data
 

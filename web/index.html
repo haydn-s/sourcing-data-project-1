@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Priced Out — What Actually Broke Home Buying for Young Americans</title>
+  <title>Priced Out: Why Buying a First Home Got Harder, and How to Navigate It</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
 </head>
@@ -12,8 +12,11 @@
 <header class="site-header">
   <a class="brand" href="#top">Priced&nbsp;Out</a>
   <nav class="site-nav">
-    <a href="#story">The story</a>
-    <a href="#explore">Explore the data</a>
+    <a href="#story">The Story</a>
+    <a href="#pillars">Four Forces</a>
+    <a href="#house-hack">House Hacking</a>
+    <a href="#takeaways">Action Plan</a>
+    <a href="#explore">Explore the Data</a>
     <a href="#limits">Limitations</a>
     <a href="#sources">Sources</a>
     <a class="nav-repo" href="https://github.com/haydn-s/sourcing-data-project-1"
@@ -21,464 +24,525 @@
   </nav>
 </header>
 
-<div id="server-warning" class="banner" hidden>
-  <strong>Charts can't load from <code>file://</code>.</strong>
-  The interactive section fetches JSON, which browsers block on local files.
-  Serve the repo instead:
-  <code>python3 -m http.server 8000</code> from the project root, then open
-  <code>http://localhost:8000/web/</code>. The story figures below are images and
-  will display either way.
+<div id="data-warning" class="banner" role="status" hidden>
+  <strong>The interactive charts couldn't load their data.</strong>
+  They fetch JSON from <code>web/data/</code>, which browsers block when the page is
+  opened straight from disk. From the project root, run
+  <code>python3 -m http.server 8000</code> and open
+  <code>http://localhost:8000/web/</code>. Until then, the story shows its figures as
+  static images, and the regional chart and data explorer stay empty.
 </div>
 
 <main id="top">
 
-  <!-- ============================ HERO ============================ -->
   <section class="hero">
     <div class="wrap">
       <p class="eyebrow">AIPI-510 · Sourcing Data for Analytics · Module Project 1</p>
-      <h1>Everyone knows houses got expensive.<br>That explanation is incomplete.</h1>
+      <h1>Higher rates did cool the median new-home sale price.<br>After inflation, it fell 9% from 2021 to 2025—and the modeled monthly payment still rose 25%.</h1>
       <p class="lede">
-        A buyer never actually pays a price — they pay a <em>monthly payment</em>, and
-        they have to pass a lender's income test to get it. Both depend on the price
-        <strong>and</strong> the interest rate together. Model the payment instead of the
-        sticker price and the recent history of American housing looks very different —
-        and then look past the shock, and it changes again.
+        All else equal, higher mortgage rates put downward pressure on prices, but prices do not have to fall enough to offset the extra borrowing cost. Buyers face a monthly payment as well as a sticker price, and our benchmark tests that payment against 28% of gross income. In 2021–2023, higher rates drove the modeled payment up while homes for sale stayed scarce: active listings averaged about half their 2017–2019 level and the homeowner vacancy rate fell to its lowest since 1956, even though builders started more single-family homes in 2021 than in any year since 2006. That left young buyers squeezed by both high prices and high financing costs. The figures below explain why.
       </p>
+      <p class="lede">This story is for renters roughly 25–40 who are trying to decide whether buying is realistic and want to understand the market pressures behind the qualification gap.</p>
 
       <div class="stats">
         <div class="stat">
-          <span class="stat-value">+11%</span>
-          <span class="stat-label">Median home price, 2021&nbsp;→&nbsp;2023</span>
+          <span class="stat-value">−1%</span>
+          <span class="stat-label">Median new-home sale price after inflation, 2021&nbsp;→&nbsp;2023 (+11% before inflation), even as mortgage rates more than doubled.</span>
         </div>
         <div class="stat stat-accent">
-          <span class="stat-value">+54%</span>
-          <span class="stat-label">Monthly payment on that same home</span>
+          <span class="stat-value">+37%</span>
+          <span class="stat-label">Modeled monthly mortgage payment after inflation, 2021&nbsp;→&nbsp;2023 (+54% before inflation).</span>
         </div>
         <div class="stat stat-accent">
-          <span class="stat-value">+62%</span>
-          <span class="stat-label">Real cost of renting since 1988, while the monthly cost of owning went sideways</span>
+          <span class="stat-value">+60%</span>
+          <span class="stat-label">Median asking rent after inflation, 1988&nbsp;→&nbsp;2025, leaving less cash for a down payment.</span>
         </div>
       </div>
 
       <p class="handoff">
-        That is the shock. Underneath it runs a slower one: rent rose 62% in real terms,
-        eating the very income a deposit has to be saved out of — and unlike most long-run
-        claims in this project, that one survives a change of starting year.
-        <a href="#qualifying-gap">Start with the qualifying gap</a>, or jump straight to
-        <a href="#robustness">the figure that stress-tests our own thesis</a>.
+        The story, in six figures, follows four reasons buying a first home got harder (incomes, rates, qualifying, and saving) and what that did to homeownership among young adults.
       </p>
 
       <p class="byline">Natalie Zachariah &amp; Haydn Stucker · Duke University, Fall 2026</p>
     </div>
   </section>
 
-  <!-- ============================ STORY ============================ -->
   <section id="story" class="section">
     <div class="wrap">
-      <h2 class="section-title">The story, in eight figures</h2>
+      <h2 class="section-title">The Story: Four Reasons Buying Feels Out of Reach</h2>
       <p class="section-intro">
-        Every figure below is generated by <code>src/eda.py</code> from data downloaded
-        programmatically from FRED and the U.S. Census Bureau. Nothing is hand-edited,
-        and every number is reproduced by running <code>python src/run_all.py</code>.
+        Four reasons buying a first home got harder, one per tab: incomes, rates, qualifying, and saving. Then the result for young adults, and what to weigh before buying.
       </p>
 
-      <article id="qualifying-gap" class="beat">
-        <h3><span class="beat-num">1</span> The qualifying gap</h3>
-        <p>
-          Start with what a bank demands. Invert the 28% front-end debt-to-income rule and
-          you get the income needed to qualify for the median home. Set that against what
-          households headed by a 25–34 year old actually earn, and the two lines come apart
-          exactly when rates move.
-        </p>
-        <figure>
-          <img src="../figures/01_income_vs_required.png"
-               alt="Two lines from 1984 to 2024: the income a lender requires and the actual median income of householders aged 25 to 34. The required-income line rises sharply after 2021, opening a gap of about $36,000 by 2023.">
-        </figure>
-      </article>
+      <div class="story-figure-shell">
+        <div class="story-figure-header">
+          <div>
+            <p class="story-figure-kicker">Figure narrative</p>
+            <h3 id="story-figure-title">Reason 1 · Incomes have not kept up with the qualification benchmark</h3>
+          </div>
+          <div class="story-figure-nav">
+            <button class="story-figure-nav-btn" data-direction="prev" aria-label="Previous figure">Prev</button>
+            <button class="story-figure-nav-btn" data-direction="next" aria-label="Next figure">Next</button>
+          </div>
+        </div>
 
-      <article id="price-vs-payment" class="beat">
-        <h3><span class="beat-num">2</span> Price and payment land in the same place</h3>
-        <p>
-          It is tempting to show price and payment diverging permanently — but that depends
-          entirely on where you start the index. Over the full twenty years they end up
-          within a few points of each other. What is real is the split that opens
-          <em>after 2021</em>, so the chart shows the whole window and shades the shock
-          rather than picking the base year that flatters the claim.
-        </p>
-        <figure>
-          <img src="../figures/02_price_vs_payment.png"
-               alt="Median home price and the monthly payment on it, both indexed to 2005 equals 100. The two track each other for most of the period and finish at plus 73 percent and plus 80 percent, with the payment spiking above the price after 2021.">
-        </figure>
-      </article>
+        <div id="story-figure-summary" class="story-figure-summary">
+          Our benchmark limits the housing payment to 28% of gross income, which sets the income a buyer would need under that rule. In 2024 dollars, the median household aged 25–34 earned $86,663 in 2021 against $91,441 required; by 2024 it earned $90,100 against $119,105. After inflation its income rose 4% while the benchmark income required rose 30%.
+        </div>
 
-      <article id="decomposition" class="beat">
-        <h3><span class="beat-num">3</span> What drove the jump</h3>
-        <p>
-          Hold the price at its 2021 level and let the rate move, then do the reverse. The
-          two effects don't sum to the total — the payment is multiplicative in price and
-          non-linear in rate — so the leftover <em>interaction</em> term is shown explicitly
-          instead of being quietly assigned to one factor.
-        </p>
-        <figure>
-          <img src="../figures/03_payment_decomposition.png"
-               alt="Stacked bars for 2022 through 2026 showing the added monthly cost versus 2021, split into higher prices, higher interest rates, and an interaction term. Rates account for about 71 percent of the 2023 increase.">
-        </figure>
-      </article>
+        <div class="story-figure-tabs" data-tabgroup="story-figures">
+          <button class="story-figure-btn is-active" data-storyfig="1">Reason 1</button>
+          <button class="story-figure-btn" data-storyfig="2">Reason 2</button>
+          <button class="story-figure-btn" data-storyfig="3">Reason 3</button>
+          <button class="story-figure-btn" data-storyfig="4">Reason 4</button>
+          <button class="story-figure-btn" data-storyfig="5">The result</button>
+          <button class="story-figure-btn" data-storyfig="6">What to consider</button>
+        </div>
 
-      <article id="robustness" class="beat beat-feature">
-        <h3><span class="beat-num">4</span> But it depends on when you start — and on inflation</h3>
-        <p>
-          This is the figure we would most want a sceptical reader to check. 2021 was the
-          all-time low in mortgage rates, which is the anchor most favourable to a
-          rates-driven story. So we re-ran the identical decomposition from
-          <strong>every anchor across twenty years</strong>, in both nominal and constant
-          dollars.
-        </p>
-        <p>
-          The result does not weaken the claim — it sharpens it. In constant dollars,
-          rising rates are the larger factor from <strong>any anchor back to 2012</strong>.
-          Run it in nominal dollars and you get the opposite answer for every anchor before
-          2020, because CPI rose 60% across the window and a nominal split hands prices the
-          credit for inflation. The two crossovers sit eight years apart.
-        </p>
-        <figure>
-          <img src="../figures/07_decomposition_sensitivity.png"
-               alt="Two stacked panels sharing an anchor-year axis from 2005 to 2021. In nominal dollars the interest-rate effect only overtakes the price effect from a 2020 anchor; in constant 2024 dollars it overtakes from 2012.">
-        </figure>
-        <p class="callout">
-          Real prices actually <em>fell</em> between 2021 and 2025, which is why the price
-          effect turns negative at the right edge of the lower panel. Percentage shares stop
-          being readable once the two effects point in opposite directions, so this figure
-          plots dollars rather than shares.
-        </p>
-      </article>
-
-      <article id="affordability-index" class="beat">
-        <h3><span class="beat-num">5</span> Could the typical young household ever afford it?</h3>
-        <p>
-          An index of 100 means the median 25–34 household earns exactly enough to qualify
-          for the median home. It has been under 100 for most of forty years. We report the
-          inconvenient comparison too: on the monthly-payment test, the early 1980s were
-          <em>worse</em> than today.
-        </p>
-        <figure>
-          <img src="../figures/04_affordability_index.png"
-               alt="Affordability index from 1984 to 2024, peaking at 104 in 2020 and falling to 70 in 2023 before recovering to 76 in 2024. The 1984 value is 64, when mortgage rates were near 14 percent.">
-        </figure>
-      </article>
-
-      <article id="down-payment" class="beat">
-        <h3><span class="beat-num">6</span> The barrier that did get worse</h3>
-        <p>
-          The payment test flatters the present. The down-payment test does not. Saving 20%
-          of the median home at a 10% savings rate took under seven years of income in 1984
-          and takes over nine now — the hurdle a payment-based measure misses entirely.
-        </p>
-        <figure>
-          <img src="../figures/06_years_to_down_payment.png"
-               alt="Years required to save a 20 percent down payment, rising from about 6.7 years in 1984 to about 9.3 years in 2024.">
-        </figure>
-      </article>
-
-      <article id="rent-vs-own" class="beat">
-        <h3><span class="beat-num">7</span> Renting is what actually got more expensive</h3>
-        <p>
-          The obvious question about all of the above: compared to <em>what</em>? Our
-          audience is renting right now. So we priced the alternative — and it reframes the
-          whole story.
-        </p>
-        <p>
-          In constant dollars, the monthly cost of owning the median home is about where it
-          was in 1988. Renting rose <strong>62%</strong> over the same span. Owning has
-          always cost more per month than renting — 3.1× in 1988, 1.9× today — so the
-          barrier was never the monthly carry. It was getting in the door, and rent is what
-          made that harder: it now takes <strong>20%</strong> of a young household's income,
-          up from 14%, out of the very same income a deposit has to be saved from.
-        </p>
-        <figure>
-          <img src="../figures/08_rent_vs_own.png"
-               alt="Two panels. The top shows the monthly cost of owning the median home versus renting, in constant 2024 dollars from 1988 to 2026: owning ends about where it started while rent rises 62 percent. The bottom shows rent rising from 14 to 20 percent of income for householders aged 25 to 34.">
-        </figure>
-        <p class="callout">
-          <strong>The same test, turned on ourselves.</strong> 1988 is where the Census rent
-          series begins, so we didn't pick it — but it was a 10.3% mortgage-rate year, the
-          86th percentile of the whole series, and it flatters the ownership line. From any
-          anchor between 1990 and 2019, real ownership cost is <em>higher</em>, by 2% to
-          42%. Rent passes the same test over the same window — up 20% to 70% from every
-          one of those anchors. (We stop at 2019: an anchor a year or two from the endpoint
-          measures noise, not a trend.) So "owning is flat" means "owning costs what it did
-          in the high-rate era" — and the rent trend is the robust half.
-        </p>
-        <p class="callout">
-          Read trends, not levels. Census reports asking rent on <em>vacant</em> units — the
-          right series for someone about to move, but those units skew smaller than the
-          median owned home. And this is cash cost only: it credits an owner nothing for the
-          equity they build, and charges a renter nothing for having none.
-        </p>
-      </article>
-
-      <article id="outcome" class="beat">
-        <h3><span class="beat-num">8</span> The outcome</h3>
-        <p>
-          All of it lands in one number. The homeownership rate for households under 35 is
-          still below where it stood three decades ago, and well off its 2004 peak.
-        </p>
-        <figure>
-          <img src="../figures/05_homeownership_by_age.png"
-               alt="Two panels: homeownership for households under 35 from 1994 to 2026, peaking at 43 percent in 2004 and falling to 36 percent, above a second panel showing the all-ages rate for comparison.">
-        </figure>
-      </article>
+        <div class="story-figure-stage">
+          <figure id="story-figure-1" class="story-figure-panel is-active" data-tabgroup="story-figures" data-figure-title="Reason 1 · Incomes have not kept up with the qualification benchmark" data-figure-summary="Our benchmark limits the housing payment to 28% of gross income, which sets the income a buyer would need under that rule. In 2024 dollars, the median household aged 25–34 earned $86,663 in 2021 against $91,441 required; by 2024 it earned $90,100 against $119,105. After inflation its income rose 4% while the benchmark income required rose 30%.">
+            <div class="story-figure-card">
+              <div class="story-chart" data-story-chart="01" role="img" aria-label="Interactive line chart in 2024 dollars comparing median household income for all ages and for householders aged 25 to 34 with the income required under the benchmark to qualify for the median newly sold home"></div>
+              <noscript><img src="../figures/01_income_vs_required.png" alt="Line chart comparing median income for households age 25 to 34 with the benchmark income required for the median newly sold home, showing the required income rising faster from 2021 to 2023." /></noscript>
+            </div>
+            <figcaption>Reason 1 · In 2024 dollars. After inflation, young households' income barely grew after 2021, while the income required under the benchmark jumped.</figcaption>
+          </figure>
+          <figure id="story-figure-2" class="story-figure-panel" data-tabgroup="story-figures" hidden data-figure-title="Reason 2 · Higher rates drove the modeled payment up" data-figure-summary="From 2005 to 2025 the median new-home sale price rose 76% and the modeled monthly payment on it 86%, but most of that was inflation: after it, they rose 7% and 13%. Falling rates held the payment below the price for most of those years; rising rates sent it past after 2021. Since then the price is up 8% and the payment 48%, or down 9% and up 25% after inflation, and 71% of the $1,002 monthly increase from 2021 to 2023 came from higher rates.">
+            <div class="story-figure-card">
+              <div class="story-chart" data-story-chart="02" role="img" aria-label="Interactive line chart of the median new-home sale price and its modeled monthly payment, both indexed to 2005 equals 100, with the years since 2021 shaded"></div>
+              <noscript><img src="../figures/02_price_vs_payment.png" alt="Indexed chart showing the median new-home sale price and modeled monthly payment rising together, with the payment increasing much more sharply after rates climbed in 2021." /></noscript>
+            </div>
+            <figcaption>Reason 2 · Both lines are indexed to 2005 = 100, before inflation. In the shaded years since 2021, the payment line jumps past the price line. The ex-post mortgage rate minus same-year CPI inflation moved from −2.7% in 2022 to +4.0% in 2025; it is a retrospective proxy, not borrowers' expected long-run real rate.</figcaption>
+          </figure>
+          <figure id="story-figure-3" class="story-figure-panel" data-tabgroup="story-figures" hidden data-figure-title="Reason 3 · Young households fell below the benchmark line" data-figure-summary="The affordability index divides the median income of households aged 25–34 by the income required under the project's benchmark, so 100 means the typical young household just meets it. It fell from 104.3 in 2020 to 70.3 in 2023, and recovered only to 75.6 in 2024.">
+            <div class="story-figure-card">
+              <div class="story-chart" data-story-chart="04" role="img" aria-label="Interactive affordability index chart with green, yellow and red bands for qualifying, falling short, and far short"></div>
+              <noscript><img src="../figures/04_affordability_index.png" alt="Affordability index chart showing the benchmark qualification gap for young households widening as modeled required income rose faster than median income." /></noscript>
+            </div>
+            <figcaption>Reason 3 · Read the bands as a traffic light: green at 100 or more, yellow from 75 to 100, red below 75. The bands are a reading guide, not a lending rule. The index was lower still in 1984 (63.8), when mortgage rates averaged 13.9%.</figcaption>
+          </figure>
+          <figure id="story-figure-4" class="story-figure-panel" data-tabgroup="story-figures" hidden data-figure-title="Reason 4 · Saving takes longer while rent keeps climbing" data-figure-summary="At a 10% savings rate, a young household needed 6.7 years to save a 20% down payment on the median newly sold home in 1984 and 9.3 years in 2024. Over the same decades, rent rose faster than inflation, taking money that could have gone toward that down payment.">
+            <div class="story-figure-card">
+              <div class="story-chart" data-story-chart="06" role="img" aria-label="Interactive line chart showing years needed to save a 20 percent down payment"></div>
+              <noscript><img src="../figures/06_years_to_down_payment.png" alt="Chart measuring how many years it takes a young household to save for a 20 percent down payment, rising as rent and other living costs absorb more income." /></noscript>
+            </div>
+            <div class="story-figure-card">
+              <div class="story-chart" data-story-chart="08" role="img" aria-label="Interactive line chart showing median asking rent in 2024 dollars rising over time"></div>
+              <noscript><img src="../figures/08_rent_vs_own.png" alt="Comparison chart through 2025 showing real asking rent rising much faster than the modeled ownership cost for the median newly sold home." /></noscript>
+            </div>
+            <figcaption>Reason 4 · Top: years to save a 20% down payment at a 10% savings rate, as if the price held still while you save. If prices and incomes keep their 1984–2024 pace, saving from 2024 takes 10.4 years when savings keep up with inflation, and 12.5 when they earn nothing. Bottom: median asking rent in 2024 dollars.</figcaption>
+          </figure>
+          <figure id="story-figure-5" class="story-figure-panel" data-tabgroup="story-figures" hidden data-figure-title="The result · Young-adult homeownership is below where it was in 1994" data-figure-summary="The share of householders under 35 who own their home peaked at 43.1% in 2004 and fell to 34.6% in 2016. In 2025 it was 37.1%, just below the 37.4% of 1994, while the rate for all ages, 65.3%, was above its 1994 level of 64.0%.">
+            <div class="story-figure-card">
+              <div class="story-chart" data-story-chart="05" role="img" aria-label="Interactive two-panel line chart of the homeownership rate for householders under 35 and, below it, for all householders"></div>
+              <noscript><img src="../figures/05_homeownership_by_age.png" alt="Two-panel chart of homeownership rates: householders under 35 peaked in 2004, fell to a low in 2016, and remain below their 1994 level, while the all-ages rate recovered above its 1994 level." /></noscript>
+            </div>
+            <figcaption>The result · Top: householders under 35, with a dashed line at the 1994 level. Bottom: all householders, for comparison. Census HVS Table 19, averaged by year.</figcaption>
+          </figure>
+          <figure id="story-figure-6" class="story-figure-panel" data-tabgroup="story-figures" hidden data-figure-title="What to consider before buying" data-figure-summary="The right time to buy is not simply when rates are low. It is when income, debt, savings, local supply, and your living plans make the monthly cost sustainable.">
+            <div class="takeaway-grid">
+              <div class="takeaway-card"><h3>Income stability</h3><p>Can your income support the payment after taxes, insurance, repairs, and emergencies?</p></div>
+              <div class="takeaway-card"><h3>Debt and savings</h3><p>Lower debt improves qualification, while a larger cash reserve keeps a purchase from becoming fragile.</p></div>
+              <div class="takeaway-card"><h3>Local market</h3><p>Check inventory, supply growth, commute, and rents in the place where you actually plan to live.</p></div>
+              <div class="takeaway-card"><h3>Time horizon</h3><p>Buying makes more sense when you expect to stay long enough to absorb closing costs and market swings.</p></div>
+            </div>
+            <figcaption>What to consider · A lower rate or lower price is not enough by itself; the whole household budget has to work.</figcaption>
+          </figure>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- ============================ EXPLORER ============================ -->
-  <section id="explore" class="section section-alt">
+  <section id="pillars" class="section section-alt">
     <div class="wrap">
-      <h2 class="section-title">Explore the source data</h2>
+      <h2 class="section-title">Four Forces That Move House Prices</h2>
       <p class="section-intro">
-        Every series the project downloads, including the ones that provide background
-        rather than feeding a headline. Each chart shows a single series against its own
-        axis — mixing series of different units on one scale is the fastest way to make a
-        chart lie.
+        Before asking whether it is time to buy, start with the four forces that shape the price and the payment: location, housing markets and rates, macro trends, and debt and savings.
+      </p>
+      <div class="takeaway-grid">
+        <div class="takeaway-card">
+          <h3>1. Location</h3>
+          <p>Jobs, schools, transport, land, and local supply decide how much competition a buyer faces. A national average cannot tell you what a home costs in your city.</p>
+        </div>
+        <div class="takeaway-card">
+          <h3>2. Housing market &amp; rates</h3>
+          <p>Inventory sets bargaining power, while mortgage rates change the monthly cost of every dollar borrowed.</p>
+        </div>
+        <div class="takeaway-card">
+          <h3>3. Macro trends</h3>
+          <p>Inflation, employment, and Federal Reserve policy shape wages, borrowing costs, and how much money households have left after essentials.</p>
+        </div>
+        <div class="takeaway-card">
+          <h3>4. Debt &amp; savings</h3>
+          <p>Student loans, credit cards, rent, and the down payment all compete for the same paycheck and affect a lender's decision.</p>
+        </div>
+      </div>
+
+      <div class="insight-card regional-card">
+        <h3>Home Price Growth Across 20 Major Metros, <span id="geo-trends-window">2021–2025</span></h3>
+        <p>
+          A national median hides how differently local markets moved. Every metro in the S&amp;P Cotality Case-Shiller 20-City Composite, ranked by how much home prices changed after inflation. Blue bars outpaced inflation; red bars fell behind it. Hover a bar for the change before inflation.
+        </p>
+        <div id="geo-trends-chart" class="geo-trends-chart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="house-hack" class="section">
+    <div class="wrap">
+      <h2 class="section-title">House Hacking: Offsetting Housing Cost With Rent</h2>
+      <p class="section-intro">
+        House hacking means buying a home with a second unit or spare rooms, living in one part, and renting out the rest. Rent from tenants helps cover the mortgage, so a buyer can own sooner and at a lower net monthly cost. It also makes the buyer a landlord, with the leverage, vacancy, and upkeep risks that come with that. Figures marked <em>from our data</em> come from this project's pipeline; the rest are cited under Sources.
+      </p>
+
+      <div class="tabs" data-tabgroup="house-hack">
+        <button class="tab-btn is-active" data-tab="tab-rent-trap">Rent Trap</button>
+        <button class="tab-btn" data-tab="tab-expense">Lower Net Cost</button>
+        <button class="tab-btn" data-tab="tab-wealth">Equity</button>
+        <button class="tab-btn" data-tab="tab-tax">Taxes</button>
+      </div>
+
+      <div id="tab-rent-trap" class="tab-panel is-active" data-tabgroup="house-hack">
+        <div class="takeaway-grid">
+          <div class="takeaway-card">
+            <h3>Rent Has Outrun Young Households' Incomes</h3>
+            <ul>
+              <li><strong>From our data:</strong> the Census median asking rent rose <strong>64%</strong> after inflation from 1988 to 2024, while the real median income of householders aged 25–34 rose <strong>20%</strong>. (The +60% at the top of the page uses the latest complete market year, 2025; income data ends in 2024.)</li>
+              <li><strong>From our data:</strong> over the same years, the median asking rent grew from <strong>14%</strong> to <strong>20%</strong> of that age group's median income, leaving less to save toward a down payment.</li>
+              <li>Rent pays for housing but builds no equity. An owner's payment does build some, through principal, but interest, taxes, insurance, and upkeep build none either.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-expense" class="tab-panel" data-tabgroup="house-hack" hidden>
+        <div class="takeaway-grid">
+          <div class="takeaway-card">
+            <h3>Rent From a Second Unit Can Cover About Half the Cost of Owning</h3>
+            <ul>
+              <li><strong>Illustration from our data:</strong> in 2024 our modeled monthly cost for the median newly sold home—principal, interest, estimated taxes, insurance, and upkeep with 20% down—was <strong>$3,128</strong>. It excludes HOA fees, transaction costs, and buyer-specific expenses. A second unit rented at that year's median asking rent of <strong>$1,487</strong> would cover <strong>48%</strong> of the modeled cost, before vacancy, repairs, and time spent managing tenants.</li>
+              <li><strong>Smaller down payments on a home you live in (Fannie Mae):</strong> conventional loans allow as little as <strong>5% down</strong> on a 2- to 4-unit home when the buyer lives in one unit (since November 2023), and <strong>3% down</strong> on a 1-unit home for first-time buyers or HomeReady borrowers. A property the buyer does not live in needs at least <strong>15% down</strong> for 1 unit and <strong>25%</strong> for 2 to 4 units.</li>
+              <li>A smaller down payment means a larger loan, a higher monthly payment than the 20%-down figure above, and mortgage insurance until enough equity builds up.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-wealth" class="tab-panel" data-tabgroup="house-hack" hidden>
+        <div class="takeaway-grid">
+          <div class="takeaway-card">
+            <h3>Owners Hold Far More Wealth, but Owning Is Not the Only Reason</h3>
+            <ul>
+              <li><strong>Federal Reserve Survey of Consumer Finances (2022):</strong> the median net worth of homeowner families was <strong>$396,200</strong>, against <strong>$10,400</strong> for renters and other families, about <strong>38 times</strong> more. Homeowners also tend to be older and to earn more, so the gap is not caused by owning alone.</li>
+              <li><strong>Principal paydown:</strong> on a <strong>$350,000</strong> 30-year fixed loan at <strong>6.5%</strong>, about <strong>$3,900</strong> of the first year's payments goes to reducing the balance; the other <strong>$22,600</strong> or so is interest. When tenants' rent helps make those payments, it helps fund that equity.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-tax" class="tab-panel" data-tabgroup="house-hack" hidden>
+        <div class="takeaway-grid">
+          <div class="takeaway-card">
+            <h3>Rental Deductions, and the Rules That Limit Them</h3>
+            <p><strong>IRS Publications 527 and 523:</strong></p>
+            <ul>
+              <li>If you rent out part of your home, you divide expenses such as mortgage interest, property taxes, and insurance between the rented part and the part you live in. The rented part's share is deducted from rental income.</li>
+              <li>The rented part of the building can be depreciated over <strong>27.5 years</strong>. That lowers taxable rental income now, but gain equal to the depreciation is taxed when you sell; the exclusion for selling your home does not cover it.</li>
+              <li>Rental losses are passive losses. An owner who actively participates can deduct up to <strong>$25,000</strong> a year of them against other income, and that allowance shrinks as modified adjusted gross income rises above <strong>$100,000</strong>, reaching zero at $150,000.</li>
+            </ul>
+            <p>This is general information, not tax advice.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="takeaways" class="section section-alt">
+    <div class="wrap">
+      <h2 class="section-title">Takeaways &amp; Buyer Action Plan</h2>
+      <p class="section-intro">
+        The analysis points to questions a prospective buyer can test against their own finances: total carrying cost, existing debt, down-payment risk, and whether local supply is expanding. It does not identify one best choice for every buyer or market.
+      </p>
+
+      <div class="takeaway-grid">
+        <div class="takeaway-card">
+          <h3>Leverage Cuts Both Ways (5x–20x)</h3>
+          <p>A down payment is a leveraged stake in the home's price. With 20% down, each 1% change in price is a 5% change in the buyer's stake; with 5% down, it is a 20% change.</p>
+          <ul>
+            <li><strong>Upside:</strong> a <strong>$400,000</strong> home bought with <strong>5%</strong> down (<strong>$20,000</strong>) that rises <strong>4%</strong> in a year gains <strong>$16,000</strong>, or <strong>80%</strong> of the down payment. In our new-home series, 4% is about the median sale price's average yearly rise from 1984 to 2025, or about 1% after inflation.</li>
+            <li><strong>Downside:</strong> a <strong>5%</strong> fall erases the whole <strong>$20,000</strong>. In that same new-home series, the median sale price fell about <strong>6%</strong> in both 2008 and 2009.</li>
+            <li>Neither figure counts closing costs, interest, mortgage insurance, upkeep, or the cost of selling.</li>
+          </ul>
+        </div>
+
+        <div class="takeaway-card">
+          <h3>Summary: Renting, Owning, and House Hacking</h3>
+          <div class="table-scroll">
+            <table class="data-matrix">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Renter</th>
+                  <th>Owner</th>
+                  <th>House Hacker</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Monthly housing cost</td>
+                  <td>Rent; builds no equity</td>
+                  <td>Mortgage, taxes, insurance, upkeep; principal builds equity</td>
+                  <td>Same as an owner, partly offset by tenants' rent</td>
+                </tr>
+                <tr>
+                  <td>Lowest conventional down payment</td>
+                  <td>None (a security deposit)</td>
+                  <td>3% (1 unit, eligible buyers)</td>
+                  <td>5% (2–4 units, living in one)</td>
+                </tr>
+                <tr>
+                  <td>Tax treatment</td>
+                  <td>No housing deductions</td>
+                  <td>Mortgage interest and property taxes, if itemizing</td>
+                  <td>Also rental expenses and depreciation on the rented part; depreciation is taxed at sale</td>
+                </tr>
+                <tr>
+                  <td>Main risks</td>
+                  <td>Rent increases; less left to save</td>
+                  <td>Price declines, repairs, selling costs</td>
+                  <td>An owner's risks, plus vacancy, unpaid rent, landlord duties, and more leverage</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="matrix-summary">House hacking can lower the net cost of owning and let a buyer start with less cash, but it adds leverage and landlord risk. Whether it pays off depends on local rents, vacancy, the price paid, and the buyer's finances.</p>
+        </div>
+      </div>
+
+      <div class="takeaway-grid">
+        <div class="takeaway-card">
+          <h3>Prioritize Debt Reduction</h3>
+          <p>
+            Lowering credit card and student debt boosts your debt-to-income ratio and improves your qualification odds even before a lender looks at a mortgage rate.
+          </p>
+        </div>
+
+        <div class="takeaway-card">
+          <h3>Focus on PITI, Not Sticker Price</h3>
+          <p>
+            Mortgage affordability is driven by principal, interest, taxes, and insurance — the real monthly burden — not by an advertised price tag alone.
+          </p>
+        </div>
+
+        <div class="takeaway-card">
+          <h3>Look for Supply Expansion</h3>
+          <p>
+            Buyers can gain leverage where new construction, zoning flexibility, or greater inventory are expanding. That is where bargaining power and rate buydowns often become available.
+          </p>
+        </div>
+
+        <div class="takeaway-card">
+          <h3>Track Reentry Signals</h3>
+          <p>
+            The clearest future signals are slower mortgage-rate growth, rising active listings, and improving rent-to-income ratios. Those conditions bring the market back toward a more balanced buying environment.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="explore" class="section">
+    <div class="wrap">
+      <h2 class="section-title">Explore the Source Data</h2>
+      <p class="section-intro">
+        These charts trace the same story at the series level: mortgage rates, new-home sale prices, repeat-sales price indices, rent, debt, and the benchmark income needed to qualify. The 23 series retrieved programmatically from FRED sit alongside the Census measures that capture household incomes and rents.
       </p>
 
       <div class="tabs" data-tabgroup="explore">
-        <button class="tab-btn is-active" data-tab="tab-housing">Housing market</button>
-        <button class="tab-btn" data-tab="tab-rates">Rates &amp; yields</button>
-        <button class="tab-btn" data-tab="tab-household">Household finances</button>
-        <button class="tab-btn" data-tab="tab-macro">Macro backdrop</button>
-        <button class="tab-btn" data-tab="tab-engineered">Engineered metrics</button>
+        <button class="tab-btn is-active" data-tab="tab-housing">Housing market &amp; rates</button>
+        <button class="tab-btn" data-tab="tab-macro">Macro trends</button>
+        <button class="tab-btn" data-tab="tab-debt">Debt &amp; savings</button>
+      </div>
+
+      <div id="chart-selection-detail" class="chart-selection-detail" aria-live="polite">
+        <strong>Selected value</strong>
+        <span>Click any point on a chart below to pin its exact value here.</span>
       </div>
 
       <div id="tab-housing" class="tab-panel is-active" data-tabgroup="explore">
+        <p class="section-intro">
+          <strong>Housing Market Indicators:</strong> mortgage rates more than doubled from 2021 to 2023, but homes for sale stayed scarce and the median new-home sale price still rose 11% before inflation (a 1% fall after it), so the modeled monthly payment rose far faster. The supply chart below shows both sides: homes listed for sale fell to about half their pre-pandemic level while builders started more single-family homes. In the charts after it, the vacancy rate hit a record low and the months' supply of new homes climbed.
+        </p>
+        <div class="insight-card supply-card">
+          <h3>Fewer Homes for Sale, More Homes Being Built</h3>
+          <p>
+            Each line compares a year with its own 2017–2019 average, set to 100. Listings count the homes for sale, mostly existing ones; starts count new single-family homes begun. During the 2021–2023 rate shock (shaded), listings fell to about half of normal while starts ran above it.
+          </p>
+          <div id="supply-chart" class="chart supply-chart" role="img" aria-label="Line chart from 2017 to 2025 of homes listed for sale and single-family housing starts, each indexed to its 2017 to 2019 average, with 2021 to 2023 shaded: listings fall to about half while starts rise above 100"></div>
+        </div>
         <div class="grid">
-          <div class="card" data-series="MORTGAGE30US"></div>
           <div class="card" data-series="MSPUS"></div>
           <div class="card" data-series="ASPUS"></div>
           <div class="card" data-series="CSUSHPINSA"></div>
-          <div class="card" data-series="RHORUSQ156N"></div>
-          <div class="card" data-series="asking_rent"></div>
-          <div class="card" data-series="CUSR0000SEHA"></div>
-        </div>
-      </div>
-
-      <div id="tab-rates" class="tab-panel" data-tabgroup="explore" hidden>
-        <div class="grid">
-          <div class="card" data-series="PRIME"></div>
+          <div class="card" data-series="MORTGAGE30US"></div>
+          <div class="card" data-series="real_mortgage_rate"></div>
           <div class="card" data-series="DGS10"></div>
           <div class="card" data-series="DGS30"></div>
-        </div>
-      </div>
-
-      <div id="tab-household" class="tab-panel" data-tabgroup="explore" hidden>
-        <div class="grid">
-          <div class="card" data-series="MEHOINUSA672N"></div>
-          <div class="card" data-series="MEHOINUSA646N"></div>
-          <div class="card" data-series="SLOAS"></div>
-          <div class="card" data-series="CCLACBW027SBOG"></div>
+          <div class="card" data-series="PRIME"></div>
+          <div class="card" data-series="ACTLISCOUUS"></div>
+          <div class="card" data-series="RHVRUSQ156N"></div>
+          <div class="card" data-series="HOUST1F"></div>
+          <div class="card" data-series="MSACSR"></div>
+          <div class="card" data-series="RHORUSQ156N"></div>
+          <div class="card" data-series="hor_under_35"></div>
+          <div class="card" data-series="monthly_piti"></div>
+          <div class="card" data-series="monthly_ownership_cost"></div>
         </div>
       </div>
 
       <div id="tab-macro" class="tab-panel" data-tabgroup="explore" hidden>
+        <p class="section-intro">
+          <strong>Macroeconomic Backdrop:</strong> asking rent rose from 14% to 20% of median income for householders ages 25–34, leaving a smaller measured share available for other uses, including saving. Together with inflation and higher mortgage rates, this makes affordability broader than the headline home price alone.
+        </p>
         <div class="grid">
-          <div class="card" data-series="GDP"></div>
           <div class="card" data-series="CPIAUCSL"></div>
+          <div class="card" data-series="CUSR0000SA0L2"></div>
+          <div class="card" data-series="GDP"></div>
           <div class="card" data-series="UNRATE"></div>
           <div class="card" data-series="POPTHM"></div>
           <div class="card" data-series="G160651A027NBEA"></div>
+          <div class="card" data-series="asking_rent"></div>
+          <div class="card" data-series="CUSR0000SEHA"></div>
+          <div class="card" data-series="years_to_save_down"></div>
         </div>
       </div>
 
-      <div id="tab-engineered" class="tab-panel" data-tabgroup="explore" hidden>
+      <div id="tab-debt" class="tab-panel" data-tabgroup="explore" hidden>
+        <p class="section-intro">
+          <strong>Debt Context &amp; Qualifications:</strong> national student-loan and credit-card balances per U.S. resident equaled 10.5% of median young-household income in 2019 and 9.2% in 2024, while the modeled housing payment rose from 30% to 40% of that income between 2021 and 2023. These debt figures are broad context only: they are not age-specific, compare a per-person stock with annual household income, and do not measure the monthly debt service used in an individual applicant's back-end DTI. This project therefore does not determine how other debts affected qualification.
+        </p>
         <div class="grid">
-          <div class="card" data-series="affordability_index"></div>
-          <div class="card" data-series="monthly_piti"></div>
-          <div class="card" data-series="required_income"></div>
-          <div class="card" data-series="years_to_save_down"></div>
-          <div class="card" data-series="hor_under_35"></div>
+          <div class="card" data-series="SLOAS"></div>
+          <div class="card" data-series="CCLACBW027SBOG"></div>
+          <div class="card" data-series="MEHOINUSA672N"></div>
+          <div class="card" data-series="MEHOINUSA646N"></div>
           <div class="card" data-series="consumer_debt_per_capita"></div>
-          <div class="card" data-series="monthly_ownership_cost"></div>
+          <div class="card" data-series="required_income"></div>
+          <div class="card" data-series="affordability_index"></div>
           <div class="card" data-series="rent_to_income"></div>
         </div>
       </div>
     </div>
+
   </section>
 
-  <!-- ============================ LIMITATIONS ============================ -->
-  <section id="limits" class="section">
+  <section id="limits" class="section section-alt">
     <div class="wrap">
-      <h2 class="section-title">Limitations, bias &amp; ethical considerations</h2>
+      <h2 class="section-title">Limitations, Bias &amp; Ethical Considerations</h2>
       <p class="section-intro">
-        The short version: this models one specific buyer, and that buyer is a construct.
-        Read these figures as an index of pressure over time, not a prediction for any
-        person.
+        These models are national and generalized. The actual experience differs by income, city, credit profile, family structure, and local market conditions.
       </p>
 
       <div class="limits-grid">
         <details class="limit">
-          <summary><strong>This models one buyer, and they don't exist</strong></summary>
+          <summary><strong>Standardized Model Assumptions</strong></summary>
           <p>
-            Every figure assumes a conventional 30-year fixed mortgage, 20% down, at the
-            national median price, judged against a 28% front-end DTI. Real buyers use FHA
-            loans with 3.5% down, get help from family, buy below the median, or stretch
-            past 28%. The national median home does not exist anywhere — housing markets
-            are local, and one national series hides enormous variation between Austin and
-            Cleveland.
+            The calculations use a conventional 30-year fixed mortgage with 20% down and a common 28% front-end debt-to-income benchmark. It is a consistent comparison rule, not a universal lender cap. Taxes, insurance, and maintenance are estimates, and the model excludes HOA fees, closing costs, and buyer-specific charges. Many first-time buyers use FHA, VA, or family support, so their actual experience can differ materially. The house hacking section discusses lower down payments, which these calculations do not model.
           </p>
         </details>
 
         <details class="limit">
-          <summary><strong>Group averages erase the largest disparities</strong></summary>
+          <summary><strong>The Headline Price Is for Newly Sold Homes</strong></summary>
           <p>
-            We analyse young households as one block. Homeownership rates differ enormously
-            by race, and the Black–white homeownership gap is wider today than it was when
-            housing discrimination was legal. Down-payment ability in particular is
-            inherited — it reflects whether a family <em>already</em> owned. An age-only cut
-            is silent on the deepest inequity in American housing.
+            The payment model needs a dollar price, so it uses Census/HUD's median sale price of new single-family houses. That median can move when the mix of homes sold changes. It fell 1.0% after CPI inflation from 2021 to 2023, while the S&amp;P Cotality Case-Shiller national repeat-sales index in the same dataset rose 4.6% after inflation. Case-Shiller follows repeat sales of existing homes and better holds quality constant, but it is an index rather than a dollar price. The headline therefore describes the new-home median, not every measure of U.S. home values.
           </p>
         </details>
 
         <details class="limit">
-          <summary><strong>The framing is a choice, and it drives the headline</strong></summary>
+          <summary><strong>Aggregated Data Erases Local Disparities</strong></summary>
           <p>
-            Measuring affordability by the monthly payment is defensible, but it is a
-            choice. By that measure the early 1980s were <em>worse</em> than today — we
-            report this rather than omitting an inconvenient comparison. Measuring by the
-            down payment, or by price-to-income, points the other way. Figure 4 exists
-            because the base year of a decomposition moves the answer more than any
-            modelling assumption in the project.
+            National price measures smooth over widespread regional differences. Real affordability gaps remain large across race, income, and geography.
           </p>
         </details>
 
         <details class="limit">
-          <summary><strong>The rent comparison is softer than it looks</strong></summary>
+          <summary><strong>Before and After Inflation</strong></summary>
           <p>
-            Census reports asking rent on <em>vacant</em> units — what a mover faces, which
-            is the right series for someone deciding whether to buy, but not what a sitting
-            tenant pays. Those units also skew smaller than the median owned home, so we are
-            not comparing like with like on size. The 62% real growth figure survives that
-            mismatch; the 1.9× level ratio is more fragile. Cash costs only, throughout.
+            Ratios such as the affordability index are unaffected by inflation, because both sides are in the same year's dollars. Dollar amounts and percentage changes are affected, so the page says which basis each uses. We adjust with the Consumer Price Index, which is about one-third housing costs; adjusting with CPI less shelter instead makes the rent finding stronger, +74% rather than +60% from 1988 to 2025. Years to save a down payment assumes the price holds still while you save, so if prices rise faster than savings grow, it takes longer.
           </p>
         </details>
 
         <details class="limit">
-          <summary><strong>Medians conceal distribution</strong></summary>
+          <summary><strong>House Hacking Draws on Outside Sources</strong></summary>
           <p>
-            A median income paired with a median price tells you nothing about who is
-            actually buying. If the buyer pool shifts toward wealthier households, medians
-            can look stable while access narrows sharply underneath. Our data cannot see
-            that.
+            The house hacking section adds Federal Reserve, Fannie Mae, and IRS sources to this project's data. Lending and tax rules change, and the figures reflect those sources as checked in September 2026. Being a landlord brings legal duties and risks that vary by state and city.
           </p>
         </details>
 
         <details class="limit">
-          <summary><strong>The two cohorts are not the same people</strong></summary>
+          <summary><strong>Decomposition Is Descriptive, Not Advice</strong></summary>
           <p>
-            Income comes from CPS Table H-10 for householders aged <strong>25–34</strong>;
-            the homeownership rate comes from HVS Table 19 for householders
-            <strong>under 35</strong>, which includes everyone below 25. They are close
-            enough to narrate together and are not interchangeable — we never divide one by
-            the other. Separately, "young households out-earn all households" is partly
-            composition: a 25–34 household is likelier to hold two earners than the all-ages
-            median, which includes single retirees.
-          </p>
-        </details>
-
-        <details class="limit">
-          <summary><strong>Survey error, two inflation measures, partial years</strong></summary>
-          <p>
-            Census CPS and HVS estimates carry sampling error, and CPS income questions
-            changed methodology in 2013 and 2017 (we keep the revised estimate). We deflate
-            with CPI-U while Census uses CPI-U-RS, so the affordability ratio is computed
-            entirely in nominal dollars and real values appear only for display. Market data
-            runs through August 2026, so 2026 is a year-to-date average — flagged with an
-            asterisk in figures and an <code>is_partial_year</code> column in the data.
-          </p>
-        </details>
-
-        <details class="limit">
-          <summary><strong>This is decomposition, not causal inference</strong></summary>
-          <p>
-            We show that rates and prices <em>account for</em> the payment increase
-            arithmetically. We do not claim to identify why rates rose, and nothing here is
-            financial advice.
+            The charts and decomposition describe an arithmetic model built from data distributed by FRED and Census. They do not establish why prices or rates changed and are not a substitute for mortgage or financial advice.
           </p>
         </details>
       </div>
     </div>
   </section>
 
-  <!-- ============================ SOURCES ============================ -->
-  <section id="sources" class="section section-alt">
+  <section id="sources" class="section">
     <div class="wrap">
       <h2 class="section-title">Sources</h2>
       <div class="sources-grid">
         <div>
           <h3>Federal Reserve Economic Data (FRED)</h3>
           <p>
-            Eighteen series retrieved programmatically from
-            <code>fred.stlouisfed.org/graph/fredgraph.csv</code>, covering mortgage rates
-            and home prices (Freddie Mac PMMS, Census/HUD, Case-Shiller), rents (CPI rent of
-            primary residence), the macro backdrop (GDP, CPI-U, unemployment, Treasury
-            yields, population) and household balance sheets (median income, student loans,
-            revolving credit).
+            Twenty-three national series, covering mortgage rates, inflation, home prices, housing supply, household income, debt, and rents, were downloaded programmatically from FRED, the Federal Reserve Bank of St. Louis's economic database. FRED distributes these series but does not own all of them. Active listing counts are Realtor.com data, published through FRED.
+          </p>
+          <p>
+            The regional comparison adds the home price index for each of the 20 metros in the S&amp;P Cotality Case-Shiller 20-City Composite (not seasonally adjusted), downloaded from FRED the same way. Freddie Mac and Realtor.com series require source attribution; Case-Shiller series are copyrighted by S&amp;P Dow Jones Indices and marked by FRED as requiring pre-approval outside permitted non-commercial educational or personal use. Reusers should review each series' terms rather than treating the source data as public domain.
           </p>
           <p class="cite">
             Federal Reserve Bank of St.&nbsp;Louis, <em>FRED Economic Data</em>.
-            <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener">fred.stlouisfed.org</a>
-            (retrieved August 2026).
+            <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener">fred.stlouisfed.org</a>.
+            See the <a href="https://fred.stlouisfed.org/legal/terms/" target="_blank" rel="noopener">FRED terms of use</a>,
+            <a href="https://fred.stlouisfed.org/series/MORTGAGE30US" target="_blank" rel="noopener">Freddie Mac series notice</a>,
+            <a href="https://fred.stlouisfed.org/series/ACTLISCOUUS" target="_blank" rel="noopener">Realtor.com series notice</a>, and
+            <a href="https://fred.stlouisfed.org/series/CSUSHPINSA" target="_blank" rel="noopener">Case-Shiller series notice</a>.
           </p>
         </div>
         <div>
           <h3>U.S. Census Bureau</h3>
           <p>
-            <strong>HVS Table 19</strong> — homeownership rates by age of householder,
-            1994–2026, quarterly. <strong>HVS Table 11A</strong> — median asking rent for
-            the U.S. and regions, 1988–2026, quarterly. <strong>CPS ASEC Table H-10</strong>
-            — households by median income and age of householder, 1967–2024, annual. All
-            three are parsed directly from the published workbooks by
-            <code>src/clean.py</code>, which is most of the awkward code in this project:
-            they are display tables built for humans, and Table 11 puts two different tables
-            on one sheet.
+            Three workbooks supply the age-specific measures in the story: Housing Vacancies and Homeownership (HVS) Table 19 (homeownership by age), HVS Table 11A (median asking rent), and CPS ASEC Table H-10 (household income by age).
           </p>
           <p class="cite">
-            U.S. Census Bureau, <em>Housing Vacancies and Homeownership (CPS/HVS)</em>,
-            Tables 19 and 11A; <em>Current Population Survey, Annual Social and Economic
-            Supplement</em>, Table H-10.
+            U.S. Census Bureau, <em>Housing Vacancies and Homeownership</em>, Tables 19 and 11A; <em>Current Population Survey, Annual Social and Economic Supplement</em>, Historical Income Table H-10.
+            <a href="https://www.census.gov/housing/hvs/data/histtabs.html" target="_blank" rel="noopener">census.gov</a>.
           </p>
         </div>
         <div>
-          <h3>Selected reading</h3>
-          <ul class="reading">
-            <li><a href="https://www.nber.org/papers/w24560" target="_blank" rel="noopener">Mian &amp; Sufi (2018)</a> — housing, credit availability and the business cycle</li>
-            <li><a href="https://www.sciencedirect.com/science/article/pii/S0165176513001630" target="_blank" rel="noopener">Glaeser &amp; Gyourko</a> — the impact of housing supply on housing markets</li>
-            <li><a href="https://www.journals.uchicago.edu/doi/10.1086/706948" target="_blank" rel="noopener">Journal of Political Economy</a> — income dynamics and housing affordability</li>
-          </ul>
+          <h3>House Hacking Section</h3>
+          <p class="cite">
+            Board of Governors of the Federal Reserve System, &ldquo;Changes in U.S. Family Finances from 2019 to 2022: Evidence from the Survey of Consumer Finances,&rdquo; <em>Federal Reserve Bulletin</em>, October 2023.
+            <a href="https://www.federalreserve.gov/publications/october-2023-changes-in-us-family-finances-from-2019-to-2022.htm" target="_blank" rel="noopener">federalreserve.gov</a>.
+          </p>
+          <p class="cite">
+            Fannie Mae, <em>Selling Guide</em> Eligibility Matrix (maximum loan-to-value ratios by occupancy and units).
+            <a href="https://singlefamily.fanniemae.com/media/document/pdf/eligibility-matrix-current" target="_blank" rel="noopener">singlefamily.fanniemae.com</a>.
+          </p>
+          <p class="cite">
+            Internal Revenue Service, Publication 527, <em>Residential Rental Property</em>, and Publication 523, <em>Selling Your Home</em> (2025).
+            <a href="https://www.irs.gov/publications/p527" target="_blank" rel="noopener">irs.gov/publications/p527</a>,
+            <a href="https://www.irs.gov/publications/p523" target="_blank" rel="noopener">irs.gov/publications/p523</a>.
+          </p>
         </div>
         <div>
-          <h3>Reproduce it</h3>
-          <p>
-            Every figure and number on this page is rebuilt from primary federal sources by
-            one command. Nothing is hand-edited. Raw downloads are resumable, so an
-            interrupted run costs nothing.
-          </p>
+          <h3>Reproducibility</h3>
           <pre><code>git clone https://github.com/haydn-s/sourcing-data-project-1.git
 cd sourcing-data-project-1
 python3 -m venv .venv &amp;&amp; source .venv/bin/activate
 pip install -r requirements.txt
 python src/run_all.py</code></pre>
-          <p>
-            <a class="repo-link"
-               href="https://github.com/haydn-s/sourcing-data-project-1"
-               target="_blank" rel="noopener">View the repository on GitHub</a>
-          </p>
-          <p class="cite">
-            The README there documents every series and its citation, the engineered
-            features, each modelling assumption, and the limitations in full — including
-            the base-year tests we ran on our own conclusions. Figures land in
-            <code>figures/</code>, cleaned panels in <code>data/processed/</code>, and this
-            page's JSON in <code>web/data/</code>.
-          </p>
         </div>
       </div>
     </div>
