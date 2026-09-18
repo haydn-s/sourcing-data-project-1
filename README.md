@@ -266,6 +266,8 @@ the other. Every assumption is a named constant in
 | `income_after_rent` | income (25–34) − annual rent | The pool a down payment is actually saved from |
 | `credit_card_debt_per_capita` | `CCLACBW027SBOG` ÷ total population | National revolving-credit stock per resident |
 | `consumer_debt_per_capita` | student + credit-card debt per capita | Context only; it cannot represent a young applicant's back-end DTI |
+| `growth_pct` / `real_growth_pct` | Change in each of 20 Case-Shiller metro indices from 2021 to the latest complete year, from annual means; the real version deflates by national CPI-U | Regional comparison; one deflator shifts every metro equally, so it does not reorder the ranking |
+| `listings_index` / `starts_index` | Active listings and single-family starts, each as an annual mean ÷ its own 2017–2019 average × 100 | Puts two supply measures with no shared unit on one axis: how far each was from normal |
 
 **On the decomposition.** To split the payment change since 2021 into price and
 rate components, we hold one input at its 2021 level and let the other move.
