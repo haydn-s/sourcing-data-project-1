@@ -571,7 +571,7 @@ financial advice.
   root (`python3 -m http.server 8000`, then `/web/`); see
   [`web/README.md`](web/README.md)
 - **GitHub repository:** this repo
-- **Presentation:** September 29th, in class
+- **Presentation:** [`presentation/priced-out-housing-affordability.pptx`](presentation/priced-out-housing-affordability.pptx) — September 22nd, in class
 
 ---
 
